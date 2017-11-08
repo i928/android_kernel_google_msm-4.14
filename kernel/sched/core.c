@@ -51,18 +51,30 @@
 
 DEFINE_PER_CPU_SHARED_ALIGNED(struct rq, runqueues);
 
+#ifdef CONFIG_SEC_DEBUG_SCHED_LOG
+void summary_set_lpm_info_runqueues(struct sec_debug_summary_data_apss *apss)
+{
+	pr_info("%s : 0x%llx\n", __func__, virt_to_phys((void *)&runqueues));
+	apss->aplpm.p_runqueues = virt_to_phys((void *)&runqueues);
+	apss->aplpm.cstate_offset = offsetof(struct rq, cstate);
+}
+#endif
+
+#if defined(CONFIG_SCHED_DEBUG) && defined(HAVE_JUMP_LABEL)
 /*
  * Debugging: various feature bits
+ *
+ * If SCHED_DEBUG is disabled, each compilation unit has its own copy of
+ * sysctl_sched_features, defined in sched.h, to allow constants propagation
+ * at compile time and compiler optimization based on features default.
  */
-
 #define SCHED_FEAT(name, enabled)	\
 	(1UL << __SCHED_FEAT_##name) * enabled |
-
 const_debug unsigned int sysctl_sched_features =
 #include "features.h"
 	0;
-
 #undef SCHED_FEAT
+#endif
 
 /*
  * Number of tasks to iterate in a single balance run.
