@@ -800,6 +800,7 @@ static ssize_t msm_bus_dbg_dump_clients_read(struct file *file,
 	if (*ppos)
 		goto exit_dump_clients_read;
 
+	rt_mutex_unlock(&msm_bus_dbg_cllist_lock);
 exit_dump_clients_read:
 	return simple_read_from_buffer(buf, count, ppos, msg, cnt);
 }
