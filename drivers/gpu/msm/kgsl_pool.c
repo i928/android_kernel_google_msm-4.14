@@ -99,6 +99,8 @@ _kgsl_pool_add_page(struct kgsl_page_pool *pool, struct page *p)
 	list_add_tail(&p->lru, &pool->page_list);
 	pool->page_count++;
 	spin_unlock(&pool->list_lock);
+	mod_node_page_state(page_pgdat(p), NR_KERNEL_MISC_RECLAIMABLE,
+				pool->pool_order);
 }
 
 /* Returns a page from specified pool */
@@ -118,7 +120,7 @@ _kgsl_pool_get_page(struct kgsl_page_pool *pool)
 	if (p != NULL)
 		mod_node_page_state(page_pgdat(p),
 				NR_KERNEL_MISC_RECLAIMABLE,
-				-(1 << pool->pool_order));
+				-pool->pool_order);
 	return p;
 }
 
