@@ -2049,8 +2049,8 @@ static int zram_remove(struct zram *zram)
 	 * anything allocated with disksize_store()
 	 */
 	zram_reset_device(zram);
-
-	blk_cleanup_disk(zram->disk);
+	blk_cleanup_queue(zram->disk->queue);
+	put_disk(zram->disk);
 	kfree(zram);
 	return 0;
 }
