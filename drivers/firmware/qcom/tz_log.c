@@ -422,7 +422,7 @@ static inline bool can_dump_tz_log(void)
 /*
  * Debugfs data structure and functions
  */
-
+#ifdef CONFIG_DEBUG_FS
 static int _disp_tz_general_stats(void)
 {
 	int len = 0;
@@ -970,7 +970,7 @@ const struct file_operations tzdbg_fops = {
 	.read    = tzdbgfs_read,
 	.open    = tzdbgfs_open,
 };
-
+#endif
 
 /*
  * Allocates log buffer from ION, registers the buffer at TZ
@@ -1034,6 +1034,7 @@ err:
 static int  tzdbgfs_init(struct platform_device *pdev)
 {
 	int rc = 0;
+#ifdef CONFIG_DEBUG_FS
 	int i;
 	struct dentry           *dent_dir;
 	struct dentry           *dent;
@@ -1063,17 +1064,19 @@ static int  tzdbgfs_init(struct platform_device *pdev)
 	return 0;
 err:
 	debugfs_remove_recursive(dent_dir);
-
+#endif
 	return rc;
 }
 
 static void tzdbgfs_exit(struct platform_device *pdev)
 {
+#ifdef CONFIG_DEBUG_FS
 	struct dentry           *dent_dir;
 
 	kzfree(tzdbg.disp_buf);
 	dent_dir = platform_get_drvdata(pdev);
 	debugfs_remove_recursive(dent_dir);
+#endif
 	if (g_qsee_log)
 		dma_free_coherent(&pdev->dev, QSEE_LOG_BUF_SIZE,
 					 (void *)g_qsee_log, coh_pmem);
