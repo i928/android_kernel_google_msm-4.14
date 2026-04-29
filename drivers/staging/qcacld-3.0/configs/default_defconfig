@@ -183,7 +183,7 @@ endif
 
 CONFIG_MPC_UT_FRAMEWORK := y
 
-CONFIG_FEATURE_EPPING := y
+CONFIG_FEATURE_EPPING := n
 
 #Flag to enable offload packets feature
 CONFIG_WLAN_OFFLOAD_PACKETS := y
@@ -259,7 +259,7 @@ ifeq ($(CONFIG_ICNSS), y)
 CONFIG_WIFI_3_0_ADRASTEA := y
 CONFIG_ADRASTEA_RRI_ON_DDR := y
 # Enable athdiag procfs debug support for adrastea
-CONFIG_ATH_PROCFS_DIAG_SUPPORT := y
+CONFIG_ATH_PROCFS_DIAG_SUPPORT := n
 # Enable 11AC TX compact feature for adrastea
 CONFIG_ATH_11AC_TXCOMPACT := y
 ifeq ($(CONFIG_QMI_SUPPORT), y)
@@ -290,7 +290,7 @@ CONFIG_QCA_WIFI_QCA8074 := y
 CONFIG_QCA_WIFI_QCA8074_VP := y
 CONFIG_DP_INTR_POLL_BASED := y
 CONFIG_TX_PER_PDEV_DESC_POOL := y
-CONFIG_DP_TRACE := y
+CONFIG_DP_TRACE := n
 CONFIG_FEATURE_TSO := y
 CONFIG_TSO_DEBUG_LOG_ENABLE := y
 CONFIG_DP_LFR := y
@@ -324,13 +324,13 @@ ifneq ($(TARGET_BUILD_VARIANT),user)
 endif
 
 #Enable WLAN/Power debugfs feature only if debug_fs is enabled
-ifeq ($(CONFIG_DEBUG_FS), y)
+#ifeq ($(CONFIG_DEBUG_FS), y)
        # Flag to enable debugfs. Depends on CONFIG_DEBUG_FS in kernel
        # configuration.
-       CONFIG_WLAN_DEBUGFS := y
+     #  CONFIG_WLAN_DEBUGFS := y
 
-       CONFIG_WLAN_MWS_INFO_DEBUGFS := y
-endif
+     #  CONFIG_WLAN_MWS_INFO_DEBUGFS := y
+#endif
 
 # Feature flags which are not (currently) configurable via Kconfig
 
@@ -497,7 +497,7 @@ CONFIG_QCA_SIGNED_SPLIT_BINARY_SUPPORT := n
 CONFIG_QCA_SINGLE_BINARY_SUPPORT := n
 
 #Enable collecting target RAM dump after kernel panic
-CONFIG_TARGET_RAMDUMP_AFTER_KERNEL_PANIC := y
+CONFIG_TARGET_RAMDUMP_AFTER_KERNEL_PANIC := n
 
 #Flag to enable/disable secure firmware feature
 CONFIG_FEATURE_SECURE_FIRMWARE := n
@@ -506,7 +506,7 @@ CONFIG_FEATURE_SECURE_FIRMWARE := n
 CONFIG_FEATURE_STATS_EXT := y
 
 #Flag to enable HTC credit history feature
-CONFIG_FEATURE_HTC_CREDIT_HISTORY := y
+CONFIG_FEATURE_HTC_CREDIT_HISTORY := n
 
 #Flag to enable MTRACE feature
 CONFIG_TRACE_RECORD_FEATURE := y
@@ -622,9 +622,9 @@ CONFIG_DESC_DUP_DETECT_DEBUG := y
 CONFIG_DEBUG_RX_RING_BUFFER := y
 endif
 
-CONFIG_DP_TRACE := y
+CONFIG_DP_TRACE := n
 #Enable Beacon Reception Stats
-CONFIG_FEATURE_BECN_STATS := y
+CONFIG_FEATURE_BECN_STATS := n
 
 #enable MPTA helper for QCS405
 ifeq ($(CONFIG_ARCH_QCS405), y)
