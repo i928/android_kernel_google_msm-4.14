@@ -39,6 +39,17 @@ CONFIG_BPF_SYSCALL=y
 CONFIG_BPF_JIT_ALWAYS_ON=y
 CONFIG_USERFAULTFD=y
 CONFIG_EMBEDDED=y
+# Required for the qcacld-3.0 WLAN module to link, not just a debug trim.
+# CONFIG_SLUB_DEBUG=y makes i_qdf_trace.h declare __qdf_bug() extern
+# (qca-wifi-host-cmn/qdf/linux/src/i_qdf_trace.h), but the out-of-line
+# definition in qdf_trace.c sits inside an extra WLAN_DEBUG guard that the
+# declaration does not require, so the symbol ends up referenced and never
+# defined:  ERROR: "__qdf_bug" [drivers/staging/qcacld-3.0/wlan.lto.ko]
+# undefined!  With SLUB_DEBUG off the header uses the static inline BUG()
+# form instead and the reference disappears. sunfish_defconfig disables it
+# too (see the debug/tracing trim note near the end of that file), so this
+# also keeps the two defconfigs consistent.
+# CONFIG_SLUB_DEBUG is not set
 # CONFIG_COMPAT_BRK is not set
 CONFIG_PROFILING=y
 CONFIG_JUMP_LABEL=y
