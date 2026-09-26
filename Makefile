@@ -216,6 +216,13 @@ VPATH		:= $(srctree)$(if $(KBUILD_EXTMOD),:$(KBUILD_EXTMOD))
 
 export srctree objtree VPATH
 
+# KernelSU-Next is an optional git submodule (drivers/kernelsu is a symlink to
+# ../KernelSU-Next/kernel). This Kconfig cannot skip a missing file (it has no
+# `osource`), so choose the file drivers/Kconfig sources: the driver's own
+# Kconfig when the submodule is checked out, else an empty stub. Without it
+# no CONFIG_KSU* symbol exists and every KernelSU/susfs hook compiles out.
+export KSU_KCONFIG := $(if $(wildcard $(srctree)/drivers/kernelsu/Kconfig),drivers/kernelsu/Kconfig,drivers/Kconfig.nokernelsu)
+
 # To make sure we do not include .config for any of the *config targets
 # catch them early, and hand them over to scripts/kconfig/Makefile
 # It is allowed to specify more targets when calling make, including

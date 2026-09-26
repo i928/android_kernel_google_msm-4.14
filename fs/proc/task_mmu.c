@@ -20,6 +20,10 @@
 #include <linux/uaccess.h>
 #include <linux/mm_inline.h>
 #include <linux/pkeys.h>
+#if defined(CONFIG_KSU_SUSFS_SUS_KSTAT) || defined(CONFIG_KSU_SUSFS_SUS_MAP) || \
+	defined(CONFIG_KSU_SUSFS_OPEN_REDIRECT)
+#include <linux/susfs_def.h>
+#endif
 
 #include <asm/elf.h>
 #include <asm/tlb.h>
@@ -340,6 +344,17 @@ static void show_vma_header_prefix(struct seq_file *m,
 	seq_putc(m, ' ');
 }
 
+#ifdef CONFIG_KSU_SUSFS_SUS_KSTAT
+extern void susfs_show_map_vma_spoofer(struct inode *inode, dev_t *out_dev,
+				       unsigned long *out_ino);
+#endif
+#ifdef CONFIG_KSU_SUSFS_OPEN_REDIRECT
+extern int susfs_open_redirect_spoof_show_map_vma(struct inode *inode,
+						  unsigned long *out_ino,
+						  dev_t *out_dev,
+						  char **spoofed_name);
+#endif
+
 static void
 show_map_vma(struct seq_file *m, struct vm_area_struct *vma, int is_pid)
 {
@@ -351,13 +366,37 @@ show_map_vma(struct seq_file *m, struct vm_area_struct *vma, int is_pid)
 	unsigned long start, end;
 	dev_t dev = 0;
 	const char *name = NULL;
+#ifdef CONFIG_KSU_SUSFS_OPEN_REDIRECT
+	char *spoofed_redirected_name = NULL;
+#endif
 
 	if (file) {
 		struct inode *inode = file_inode(vma->vm_file);
+#ifdef CONFIG_KSU_SUSFS_OPEN_REDIRECT
+		if (SUSFS_IS_INODE_OPEN_REDIRECT(inode)) {
+			if (!susfs_open_redirect_spoof_show_map_vma(inode, &ino,
+					&dev, &spoofed_redirected_name)) {
+				pgoff = ((loff_t)vma->vm_pgoff) << PAGE_SHIFT;
+				goto susfs_orig_flow;
+			}
+		}
+#endif
+#ifdef CONFIG_KSU_SUSFS_SUS_MAP
+		/* Hide the mapping entirely: emit no line for this vma. */
+		if (SUSFS_IS_INODE_SUS_MAP(inode))
+			return;
+#endif
 		dev = inode->i_sb->s_dev;
 		ino = inode->i_ino;
 		pgoff = ((loff_t)vma->vm_pgoff) << PAGE_SHIFT;
+#ifdef CONFIG_KSU_SUSFS_SUS_KSTAT
+		susfs_show_map_vma_spoofer(inode, &dev, &ino);
+#endif
 	}
+
+#ifdef CONFIG_KSU_SUSFS_OPEN_REDIRECT
+susfs_orig_flow:
+#endif
 
 	start = vma->vm_start;
 	end = vma->vm_end;
@@ -367,6 +406,15 @@ show_map_vma(struct seq_file *m, struct vm_area_struct *vma, int is_pid)
 	 * Print the dentry name for named mappings, and a
 	 * special [heap] marker for the heap:
 	 */
+#ifdef CONFIG_KSU_SUSFS_OPEN_REDIRECT
+	if (spoofed_redirected_name) {
+		seq_pad(m, ' ');
+		seq_puts(m, spoofed_redirected_name);
+		seq_putc(m, '\n');
+		kfree(spoofed_redirected_name);
+		return;
+	}
+#endif
 	if (file) {
 		seq_pad(m, ' ');
 		seq_file_path(m, file, "\n");
@@ -872,6 +920,14 @@ static int show_smap(struct seq_file *m, void *v, int is_pid)
 
 	memset(&mss, 0, sizeof(mss));
 
+#ifdef CONFIG_KSU_SUSFS_SUS_MAP
+	/*
+	 * Hide a sus_map vma from smaps. show_smap() is now single-vma only
+	 * (rollup moved to show_smaps_rollup()), so returning early is enough.
+	 */
+	if (vma->vm_file && SUSFS_IS_INODE_SUS_MAP(file_inode(vma->vm_file)))
+		return 0;
+#endif
 	smap_gather_stats(vma, &mss);
 
 	show_map_vma(m, vma, is_pid);
@@ -922,6 +978,15 @@ static int show_smaps_rollup(struct seq_file *m, void *v)
 	hold_task_mempolicy(priv);
 
 	for (vma = priv->mm->mmap; vma; vma = vma->vm_next) {
+#ifdef CONFIG_KSU_SUSFS_SUS_MAP
+		/*
+		 * Skip accounting for a sus_map vma, but still let it count
+		 * toward the [rollup] extent -- matching the pre-split
+		 * behaviour where rollup mode skipped the walk, not the vma.
+		 */
+		if (!(vma->vm_file &&
+		      SUSFS_IS_INODE_SUS_MAP(file_inode(vma->vm_file))))
+#endif
 			smap_gather_stats(vma, &mss);
 		last_vma_end = vma->vm_end;
 	}
@@ -1653,7 +1718,26 @@ static ssize_t pagemap_read(struct file *file, char __user *buf,
 		if (end < start_vaddr || end > end_vaddr)
 			end = end_vaddr;
 		down_read(&mm->mmap_sem);
+#ifdef CONFIG_KSU_SUSFS_SUS_MAP
+		{
+			/*
+			 * Hide a sus_map from /proc/<pid>/pagemap: if this range
+			 * starts inside a flagged vma, skip the walk so no PTE/pfn
+			 * entries are emitted for it (report success, write nothing
+			 * -- matching the other SUS_MAP /proc paths).
+			 */
+			struct vm_area_struct *sus_vma = find_vma(mm, start_vaddr);
+
+			if (sus_vma && start_vaddr >= sus_vma->vm_start &&
+			    sus_vma->vm_file &&
+			    SUSFS_IS_INODE_SUS_MAP(file_inode(sus_vma->vm_file)))
+				ret = 0;
+			else
+				ret = walk_page_range(start_vaddr, end, &pagemap_walk);
+		}
+#else
 		ret = walk_page_range(start_vaddr, end, &pagemap_walk);
+#endif
 		up_read(&mm->mmap_sem);
 		start_vaddr = end;
 

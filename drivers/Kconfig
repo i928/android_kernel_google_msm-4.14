@@ -232,4 +232,11 @@ source "drivers/sensors/Kconfig"
 
 source "drivers/esoc/Kconfig"
 
+# drivers/kernelsu/Kconfig, or drivers/Kconfig.nokernelsu when the
+# KernelSU-Next submodule is not checked out (chosen in the top Makefile).
+config KSU_KCONFIG
+	string
+	option env="KSU_KCONFIG"
+
+source "$KSU_KCONFIG"
 endmenu

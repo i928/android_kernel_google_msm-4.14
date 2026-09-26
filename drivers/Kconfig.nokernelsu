@@ -1,0 +1,7 @@
+# SPDX-License-Identifier: GPL-2.0
+#
+# Sourced from drivers/Kconfig in place of drivers/kernelsu/Kconfig when the
+# KernelSU-Next submodule is not checked out (see KSU_KCONFIG in the top
+# Makefile). Intentionally defines nothing: with no CONFIG_KSU* symbols,
+# KernelSU and the susfs hooks compile out and the kernel builds without them.
+# To build with KernelSU:  git submodule update --init KernelSU-Next

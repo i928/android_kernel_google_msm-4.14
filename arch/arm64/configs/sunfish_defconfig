@@ -778,3 +778,38 @@ CONFIG_CRYPTO_AES_ARM64_CE_CCM=y
 CONFIG_CRYPTO_AES_ARM64_CE_BLK=y
 CONFIG_CRYPTO_AES_ARM64_NEON_BLK=y
 CONFIG_XZ_DEC=y
+# >>> KernelSU-Next + SUSFS >>>
+# CONFIG_KPROBES is not set  -> KSU_KPROBES_HOOK off, manual hooks active
+CONFIG_KSU=y
+CONFIG_KSU_MANUAL_HOOK=n
+CONFIG_KSU_LSM_SECURITY_HOOKS=y
+CONFIG_KSU_SUSFS=y
+# KernelSU-Next implements magic mount:
+# CONFIG_KSU_SUSFS_HAS_MAGIC_MOUNT=y -- DEAD, no Kconfig defines it. Obsolete in
+# susfs v2.1.0: the guards it fed lived in susfs_auto_add_try_umount_for_bind_mount(),
+# which v2.1.0 removed (try_umount paths are now added from userspace). lopro still
+# has it because he is on susfs v1.5.12. Kept commented so it is not re-added by a
+# diff against lopro/abu.
+CONFIG_KSU_SUSFS_SUS_PATH=y
+CONFIG_KSU_SUSFS_SUS_MOUNT=y
+# CONFIG_KSU_SUSFS_AUTO_ADD_SUS_KSU_DEFAULT_MOUNT=y -- DEAD. No Kconfig defines it, and susfs v2.1.0 deleted
+# susfs_auto_add_sus_ksu_default_mount(); fs/namespace.c keeps only the extern.
+# Enabling it would be an undefined-reference LINK error, not merely inert.
+# CONFIG_KSU_SUSFS_AUTO_ADD_SUS_BIND_MOUNT=y -- DEAD. No Kconfig defines it, and susfs v2.1.0 deleted
+# susfs_auto_add_sus_bind_mount(); fs/namespace.c keeps only the extern.
+# Enabling it would be an undefined-reference LINK error, not merely inert.
+CONFIG_KSU_SUSFS_SUS_KSTAT=y
+CONFIG_KSU_SUSFS_SUS_MAP=y
+CONFIG_KSU_SUSFS_SUS_OVERLAYFS=y
+CONFIG_KSU_SUSFS_TRY_UMOUNT=y
+# CONFIG_KSU_SUSFS_AUTO_ADD_TRY_UMOUNT_FOR_BIND_MOUNT=y -- DEAD. No Kconfig defines it, and susfs v2.1.0 deleted
+# susfs_auto_add_try_umount_for_bind_mount(); fs/namespace.c keeps only the extern.
+# Enabling it would be an undefined-reference LINK error, not merely inert.
+CONFIG_KSU_SUSFS_SPOOF_UNAME=y
+CONFIG_KSU_SUSFS_ENABLE_LOG=y
+CONFIG_KSU_SUSFS_HIDE_KSU_SUSFS_SYMBOLS=y
+CONFIG_KSU_SUSFS_SPOOF_CMDLINE_OR_BOOTCONFIG=y
+CONFIG_KSU_SUSFS_OPEN_REDIRECT=y
+# SUS_SU is for kprobe-hooked KSU only; unsupported on non-GKI manual hooks:
+# CONFIG_KSU_SUSFS_SUS_SU is not set
+# <<< KernelSU-Next + SUSFS <<<
