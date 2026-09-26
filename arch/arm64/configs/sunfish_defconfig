@@ -800,6 +800,8 @@ CONFIG_KSU_SUSFS_SUS_MOUNT=y
 # Enabling it would be an undefined-reference LINK error, not merely inert.
 CONFIG_KSU_SUSFS_SUS_KSTAT=y
 CONFIG_KSU_SUSFS_SUS_MAP=y
+# sus_memfd (port of sidex15 bc23096): verified working on device, kept enabled.
+CONFIG_KSU_SUSFS_SUS_MEMFD=y
 CONFIG_KSU_SUSFS_SUS_OVERLAYFS=y
 CONFIG_KSU_SUSFS_TRY_UMOUNT=y
 # CONFIG_KSU_SUSFS_AUTO_ADD_TRY_UMOUNT_FOR_BIND_MOUNT=y -- DEAD. No Kconfig defines it, and susfs v2.1.0 deleted
