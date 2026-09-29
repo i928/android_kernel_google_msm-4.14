@@ -4003,7 +4003,7 @@ static int redirty_blocks(struct inode *inode, pgoff_t page_idx, int len)
 	int i, page_len = 0, ret = 0;
 
 	for (i = 0; i < len; i++, page_idx++) {
-		page = read_cache_page(mapping, page_idx, NULL, NULL);
+		page = read_mapping_page(mapping, page_idx, NULL);
 		if (IS_ERR(page)) {
 			ret = PTR_ERR(page);
 			break;
