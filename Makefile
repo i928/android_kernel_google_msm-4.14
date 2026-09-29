@@ -540,8 +540,16 @@ else
 CLANG_FLAGS	+= --target=$(CLANG_TARGET_FLAGS)
 endif # CLANG_TARGET_FLAGS
 else
-CLANG_FLAGS	+= --target=$(notdir $(CROSS_COMPILE:%-=%))
+# Android kernel builds pass CROSS_COMPILE=aarch64-linux-android- for the GCC
+# binutils and CLANG_TRIPLE=aarch64-linux-gnu- for the compiler target. A kernel
+# compiled for the *-android target hangs before the console comes up, so
+# CLANG_TRIPLE wins when it is set (as before lineage-23.2's revert of
+# "ANDROID: Kbuild, LLVMLinux: allow overriding clang target triple").
+CLANG_FLAGS	+= --target=$(notdir $(if $(CLANG_TRIPLE),$(CLANG_TRIPLE:%-=%),$(CROSS_COMPILE:%-=%)))
 endif # CROSS_COMPILE
+ifneq ($(findstring android,$(filter --target=%,$(CLANG_FLAGS))),)
+$(error Clang --target=*-android* would be used; set CLANG_TRIPLE (e.g. aarch64-linux-gnu-))
+endif
 
 ifeq ($(LLVM_IAS),0)
 CLANG_FLAGS	+= -no-integrated-as
