@@ -17,6 +17,7 @@
 #include <linux/magic.h>
 #include <linux/kobject.h>
 #include <linux/sched.h>
+#include <linux/sched/mm.h>
 #include <linux/cred.h>
 #include <linux/vmalloc.h>
 #include <linux/bio.h>
@@ -3393,6 +3394,24 @@ static inline void *f2fs_kvmalloc(struct f2fs_sb_info *sbi,
 	if (time_to_inject(sbi, FAULT_KVMALLOC)) {
 		f2fs_show_injection_info(sbi, FAULT_KVMALLOC);
 		return NULL;
+	}
+
+	/*
+	 * 4.14's kvmalloc() falls back to vmalloc only for GFP_KERNEL-compatible
+	 * flags; with GFP_NOFS it is a plain kmalloc. The zstd decompression
+	 * workspace is an order-6 allocation, which fails on a fragmented
+	 * system, so reads of compressed files return -ENOMEM and every
+	 * process faulting on an mmap of one gets SIGBUS. Allocate under a
+	 * NOFS scope instead, which keeps the no-fs-reclaim guarantee and
+	 * allows the vmalloc fallback.
+	 */
+	if ((flags & GFP_KERNEL) != GFP_KERNEL &&
+			(flags | __GFP_FS) == (flags | GFP_KERNEL)) {
+		unsigned int nofs_flag = memalloc_nofs_save();
+		void *ret = kvmalloc(size, flags | __GFP_FS);
+
+		memalloc_nofs_restore(nofs_flag);
+		return ret;
 	}
 
 	return kvmalloc(size, flags);
