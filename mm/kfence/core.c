@@ -237,7 +237,7 @@ static __always_inline void for_each_canary(const struct kfence_metadata *meta, 
 	const unsigned long pageaddr = ALIGN_DOWN(meta->addr, PAGE_SIZE);
 	unsigned long addr;
 
-	lockdep_assert_held((struct raw_spinlock *)&meta->lock);
+	lockdep_assert_held(&meta->lock);
 
 	/*
 	 * We'll iterate over each canary byte per-side until fn() returns
