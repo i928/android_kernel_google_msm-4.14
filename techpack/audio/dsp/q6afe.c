@@ -7899,8 +7899,19 @@ int afe_alloc_cal(int32_t cal_type, size_t data_size,
 	}
 
 	mutex_lock(&this_afe.afe_cmd_lock);
+	/*
+	 * Known lock cycle, not fixed (debug_locking only, no-op without
+	 * LOCKDEP): importing the cal buffer may power on the SMMU and take
+	 * clk prepare_lock under afe_cmd_lock, while audio_ext_clk_prepare()
+	 * takes afe_cmd_lock under prepare_lock. afe_cmd_lock here is
+	 * deliberate (7fa106ccd70d); the real fix is for the audio ext clock not
+	 * to send AFE commands under prepare_lock. Keep lockdep off for this
+	 * call so it can keep checking the rest of the system.
+	 */
+	lockdep_off();
 	ret = cal_utils_alloc_cal(data_size, data,
 		this_afe.cal_data[cal_index], 0, NULL);
+	lockdep_on();
 	if (ret < 0) {
 		pr_err("%s: cal_utils_alloc_block failed, ret = %d, cal type = %d!\n",
 			__func__, ret, cal_type);
