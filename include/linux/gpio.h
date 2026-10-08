@@ -251,9 +251,11 @@ static inline void devm_gpio_free(struct device *dev, unsigned int gpio)
 
 #endif /* ! CONFIG_GPIOLIB */
 
-#endif /* __LINUX_GPIO_H */
-
+struct seq_file;
 /* No MSM TLMM dump implementation in this tree (pinctrl-msm has none). */
 static inline int msm_gpio_dump(struct seq_file *s) { return 0; }
+
+#endif /* __LINUX_GPIO_H */
+
 int pmic_gpio_dump(struct seq_file *s);
 extern bool pm_gpio_debug_mask;
