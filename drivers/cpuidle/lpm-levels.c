@@ -448,7 +448,7 @@ static int cpu_power_select(struct cpuidle_device *dev,
 		msm_pm_set_timer(modified_time_us);
 
 done_select:
-	trace_cpu_power_select(best_level, sleep_us, latency_us, next_event_us);
+	trace_cpu_power_select_rcuidle(best_level, sleep_us, latency_us, next_event_us);
 
 	return best_level;
 }
@@ -583,7 +583,7 @@ static int cluster_configure(struct lpm_cluster *cluster, int idx,
 		update_debug_pc_event(CLUSTER_ENTER, idx,
 			cluster->num_children_in_sync.bits[0],
 			cluster->child_cpus.bits[0], from_idle);
-		trace_cluster_enter(cluster->cluster_name, idx,
+		trace_cluster_enter_rcuidle(cluster->cluster_name, idx,
 			cluster->num_children_in_sync.bits[0],
 			cluster->child_cpus.bits[0], from_idle);
 		lpm_stats_cluster_enter(cluster->stats, idx);
@@ -720,7 +720,7 @@ static void cluster_unprepare(struct lpm_cluster *cluster,
 	update_debug_pc_event(CLUSTER_EXIT, cluster->last_level,
 			cluster->num_children_in_sync.bits[0],
 			cluster->child_cpus.bits[0], from_idle);
-	trace_cluster_exit(cluster->cluster_name, cluster->last_level,
+	trace_cluster_exit_rcuidle(cluster->cluster_name, cluster->last_level,
 			cluster->num_children_in_sync.bits[0],
 			cluster->child_cpus.bits[0], from_idle);
 
