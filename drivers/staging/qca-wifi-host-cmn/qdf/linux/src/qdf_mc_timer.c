@@ -175,6 +175,9 @@ static void qdf_mc_timer_print_list(qdf_list_t *timers)
 		const char *filename = kbasename(timer_node->file_name);
 		uint32_t line = timer_node->line_num;
 
+		(void)filename;
+                (void)line;
+
 		qdf_spin_unlock_irqrestore(&qdf_timer_list_lock);
 		qdf_err("timer Leak@ File %s, @Line %u", filename, line);
 		qdf_spin_lock_irqsave(&qdf_timer_list_lock);

@@ -1014,7 +1014,7 @@ qdf_mem_domain_check_for_leaks(enum qdf_debug_domain domain,
 
 	qdf_err("Memory leaks detected in %s domain!",
 		qdf_debug_domain_name(domain));
-	qdf_mem_domain_print(mem_list, qdf_err_printer, NULL);
+	//qdf_mem_domain_print(mem_list, qdf_err_printer, NULL);
 
 	return mem_list->count;
 }
@@ -1879,4 +1879,14 @@ void qdf_ether_addr_copy(void *dst_addr, const void *src_addr)
 	ether_addr_copy(dst_addr, src_addr);
 }
 qdf_export_symbol(qdf_ether_addr_copy);
+
+void qdf_mem_skb_inc(qdf_size_t size)
+{
+}
+EXPORT_SYMBOL(qdf_mem_skb_inc);
+
+void qdf_mem_skb_dec(qdf_size_t size)
+{
+}
+EXPORT_SYMBOL(qdf_mem_skb_dec);
 

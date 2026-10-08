@@ -28,6 +28,7 @@ function update_debug_config() {
          -e CONFIG_DEBUG_PAGEALLOC_ENABLE_DEFAULT \
          -e CONFIG_SCHED_STACK_END_CHECK \
          -e CONFIG_SLUB_DEBUG \
+         -e CONFIG_SLUB_DEBUG_ON \
          -e CONFIG_SLUB_DEBUG_PANIC_ON \
          -e CONFIG_PAGE_OWNER \
          -e CONFIG_PAGE_OWNER_ENABLE_DEFAULT \

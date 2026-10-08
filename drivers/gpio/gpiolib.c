@@ -3806,13 +3806,6 @@ static struct dentry *debugfs_base;
 
 static int list_gpios_show(struct seq_file *s, void *v)
 {
-	struct gpio_device *gdev = v;
-	struct gpio_chip *chip = gdev->chip;
-
-	if (chip->gpio_dump) {
-		msm_gpio_dump(s);
-		pmic_gpio_dump(s);
-	}
 	return 0;
 }
 
@@ -3857,5 +3850,23 @@ static int __init gpiolib_debugfs_init(void)
 	return 0;
 }
 subsys_initcall(gpiolib_debugfs_init);
+
+int msm_gpio_dump(struct seq_file *s) 
+{
+    return 0;
+}
+EXPORT_SYMBOL_GPL(msm_gpio_dump);
+
+int msm_rpmh_master_stats_dump(struct seq_file *s)
+{
+    return 0;
+}
+EXPORT_SYMBOL_GPL(msm_rpmh_master_stats_dump);
+
+int msm_rpmstats_stats_dump(struct seq_file *s)
+{
+    return 0;
+}
+EXPORT_SYMBOL_GPL(msm_rpmstats_stats_dump);
 
 #endif	/* DEBUG_FS */
