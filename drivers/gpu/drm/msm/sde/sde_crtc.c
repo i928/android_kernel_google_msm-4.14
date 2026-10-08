@@ -5028,10 +5028,6 @@ static void sde_crtc_disable(struct drm_crtc *crtc)
 			sde_encoder_control_idle_pc(encoder, true);
 	}
 
-	if (sde_crtc->power_event)
-		sde_power_handle_unregister_event(&priv->phandle,
-				sde_crtc->power_event);
-
 	/**
 	 * All callbacks are unregistered and frame done waits are complete
 	 * at this point. No buffers are accessed by hardware.
@@ -5054,6 +5050,17 @@ static void sde_crtc_disable(struct drm_crtc *crtc)
 	cstate->bw_split_vote = false;
 
 	mutex_unlock(&sde_crtc->crtc_lock);
+
+	/*
+	 * Unregister after dropping crtc_lock: unregistering takes phandle_lock,
+	 * and sde_power_resource_enable() calls sde_crtc_handle_power_event()
+	 * (takes crtc_lock) with phandle_lock held -- a display power event
+	 * racing this disable deadlocked. A callback that slips in before this
+	 * already ran after the disable before (it waited on crtc_lock).
+	 */
+	if (sde_crtc->power_event)
+		sde_power_handle_unregister_event(&priv->phandle,
+				sde_crtc->power_event);
 }
 
 static void sde_crtc_enable(struct drm_crtc *crtc,
