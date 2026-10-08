@@ -533,19 +533,24 @@ static void devfreq_dev_release(struct device *dev)
  */
 #define DEVFREQ_LOCK_CLASSES	64
 static struct lock_class_key devfreq_lock_keys[DEVFREQ_LOCK_CLASSES];
+static struct lock_class_key devfreq_event_lock_keys[DEVFREQ_LOCK_CLASSES];
 static atomic_t devfreq_lock_next = ATOMIC_INIT(0);
 
+/* Also event_lock: kgsl resumes the devbw devfreq and suspends the busmon one. */
 static void devfreq_lock_init(struct devfreq *devfreq)
 {
-	int i = atomic_inc_return(&devfreq_lock_next) - 1;
+	int i = min(atomic_inc_return(&devfreq_lock_next) - 1,
+		    DEVFREQ_LOCK_CLASSES - 1);
 
-	__mutex_init(&devfreq->lock, "&devfreq->lock",
-		     &devfreq_lock_keys[min(i, DEVFREQ_LOCK_CLASSES - 1)]);
+	__mutex_init(&devfreq->lock, "&devfreq->lock", &devfreq_lock_keys[i]);
+	__mutex_init(&devfreq->event_lock, "&devfreq->event_lock",
+		     &devfreq_event_lock_keys[i]);
 }
 #else
 static void devfreq_lock_init(struct devfreq *devfreq)
 {
 	mutex_init(&devfreq->lock);
+	mutex_init(&devfreq->event_lock);
 }
 #endif
 
@@ -588,7 +593,6 @@ struct devfreq *devfreq_add_device(struct device *dev,
 	}
 
 	devfreq_lock_init(devfreq);
-	mutex_init(&devfreq->event_lock);
 	mutex_lock(&devfreq->lock);
 	devfreq->dev.parent = dev;
 	devfreq->dev.class = devfreq_class;
