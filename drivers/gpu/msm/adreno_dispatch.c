@@ -504,12 +504,18 @@ static void  dispatcher_queue_context(struct adreno_device *adreno_dev,
 		struct adreno_context *drawctxt)
 {
 	struct adreno_dispatcher *dispatcher = &adreno_dev->dispatcher;
+	unsigned long flags;
 
 	/* Refuse to queue a detached context */
 	if (kgsl_context_detached(&drawctxt->base))
 		return;
 
-	spin_lock(&dispatcher->plist_lock);
+	/*
+	 * irqsave: also reached from fence callbacks
+	 * (kgsl_sync_fence_callback -> drawobj_sync_fence_func), which a
+	 * dma_fence_array can signal from hard irq (irq_work).
+	 */
+	spin_lock_irqsave(&dispatcher->plist_lock, flags);
 
 	if (plist_node_empty(&drawctxt->pending)) {
 		/* Get a reference to the context while it sits on the list */
@@ -519,7 +525,7 @@ static void  dispatcher_queue_context(struct adreno_device *adreno_dev,
 		}
 	}
 
-	spin_unlock(&dispatcher->plist_lock);
+	spin_unlock_irqrestore(&dispatcher->plist_lock, flags);
 }
 
 /**
@@ -856,6 +862,7 @@ static void _adreno_dispatcher_issuecmds(struct adreno_device *adreno_dev)
 	struct adreno_dispatcher *dispatcher = &adreno_dev->dispatcher;
 	struct adreno_context *drawctxt, *next;
 	struct plist_head requeue, busy_list;
+	unsigned long flags;
 	int ret;
 
 	/* Leave early if the dispatcher isn't in a happy state */
@@ -875,10 +882,10 @@ static void _adreno_dispatcher_issuecmds(struct adreno_device *adreno_dev)
 		if (adreno_gpu_halt(adreno_dev) != 0)
 			break;
 
-		spin_lock(&dispatcher->plist_lock);
+		spin_lock_irqsave(&dispatcher->plist_lock, flags);
 
 		if (plist_head_empty(&dispatcher->pending)) {
-			spin_unlock(&dispatcher->plist_lock);
+			spin_unlock_irqrestore(&dispatcher->plist_lock, flags);
 			break;
 		}
 
@@ -888,7 +895,7 @@ static void _adreno_dispatcher_issuecmds(struct adreno_device *adreno_dev)
 
 		plist_del(&drawctxt->pending, &dispatcher->pending);
 
-		spin_unlock(&dispatcher->plist_lock);
+		spin_unlock_irqrestore(&dispatcher->plist_lock, flags);
 
 		if (kgsl_context_detached(&drawctxt->base) ||
 			kgsl_context_invalid(&drawctxt->base)) {
@@ -900,7 +907,7 @@ static void _adreno_dispatcher_issuecmds(struct adreno_device *adreno_dev)
 
 		/* Don't bother requeuing on -ENOENT - context is detached */
 		if (ret != 0 && ret != -ENOENT) {
-			spin_lock(&dispatcher->plist_lock);
+			spin_lock_irqsave(&dispatcher->plist_lock, flags);
 
 			/*
 			 * Check to seen if the context had been requeued while
@@ -927,7 +934,7 @@ static void _adreno_dispatcher_issuecmds(struct adreno_device *adreno_dev)
 			else
 				plist_add(&drawctxt->pending, &requeue);
 
-			spin_unlock(&dispatcher->plist_lock);
+			spin_unlock_irqrestore(&dispatcher->plist_lock, flags);
 		} else {
 			/*
 			 * If the context doesn't need be requeued put back the
@@ -938,7 +945,7 @@ static void _adreno_dispatcher_issuecmds(struct adreno_device *adreno_dev)
 		}
 	}
 
-	spin_lock(&dispatcher->plist_lock);
+	spin_lock_irqsave(&dispatcher->plist_lock, flags);
 
 	/* Put the contexts that couldn't submit back on the pending list */
 	plist_for_each_entry_safe(drawctxt, next, &busy_list, pending) {
@@ -952,7 +959,7 @@ static void _adreno_dispatcher_issuecmds(struct adreno_device *adreno_dev)
 		plist_add(&drawctxt->pending, &dispatcher->pending);
 	}
 
-	spin_unlock(&dispatcher->plist_lock);
+	spin_unlock_irqrestore(&dispatcher->plist_lock, flags);
 }
 
 static inline void _decrement_submit_now(struct kgsl_device *device)
