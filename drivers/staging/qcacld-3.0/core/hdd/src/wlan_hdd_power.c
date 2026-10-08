@@ -344,7 +344,7 @@ void hdd_enable_ns_offload(struct hdd_adapter *adapter,
 {
 	struct hdd_context *hdd_ctx = WLAN_HDD_GET_CTX(adapter);
 	struct wlan_objmgr_psoc *psoc = hdd_ctx->psoc;
-	struct inet6_dev *in6_dev;
+	struct inet6_dev *in6_dev = NULL;
 	struct pmo_ns_req *ns_req;
 	QDF_STATUS status;
 	int errno;
@@ -356,7 +356,11 @@ void hdd_enable_ns_offload(struct hdd_adapter *adapter,
 		goto out;
 	}
 
-	in6_dev = __in6_dev_get(adapter->dev);
+	/*
+	 * Called from a work item without rtnl: __in6_dev_get() needs rtnl or
+	 * RCU. Take a reference instead, held while its addresses are read.
+	 */
+	in6_dev = in6_dev_get(adapter->dev);
 	if (NULL == in6_dev) {
 		hdd_err("IPv6 dev does not exist. Failed to request NSOffload");
 		goto out;
@@ -420,6 +424,8 @@ free_req:
 	qdf_mem_free(ns_req);
 
 out:
+	if (in6_dev)
+		in6_dev_put(in6_dev);
 	hdd_exit();
 }
 

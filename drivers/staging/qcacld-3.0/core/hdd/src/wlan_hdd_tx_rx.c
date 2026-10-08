@@ -1422,7 +1422,14 @@ static bool hdd_is_arp_local(struct sk_buff *skb)
 
 	arp = (struct arphdr *)skb->data;
 	if (arp->ar_op == htons(ARPOP_REQUEST)) {
-		in_dev = __in_dev_get_rtnl(skb->dev);
+		bool match = false;
+
+		/*
+		 * RX thread, no rtnl: __in_dev_get_rtnl() is wrong here; read
+		 * the in_device and its ifa_list under RCU.
+		 */
+		rcu_read_lock();
+		in_dev = __in_dev_get_rcu(skb->dev);
 		if (in_dev) {
 			for (ifap = &in_dev->ifa_list; (ifa = *ifap) != NULL;
 				ifap = &ifa->ifa_next) {
@@ -1439,8 +1446,10 @@ static bool hdd_is_arp_local(struct sk_buff *skb)
 			hdd_debug("ARP packet: local IP: %x dest IP: %x",
 				ifa->ifa_local, tip);
 			if (ifa->ifa_local == tip)
-				return true;
+				match = true;
 		}
+		rcu_read_unlock();
+		return match;
 	}
 
 	return false;
