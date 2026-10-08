@@ -681,23 +681,6 @@ static inline void qdf_mem_dma_dec(qdf_size_t size) {}
 void qdf_mem_skb_inc(qdf_size_t size) {}
 void qdf_mem_skb_dec(qdf_size_t size) {}
 
-#ifdef MEMORY_DEBUG
-/* QDF_VTRACE is compiled out here (debloated qdf_trace): print directly. */
-static int qdf_err_printer(void *priv, const char *fmt, ...)
-{
-	struct va_format vaf;
-	va_list args;
-
-	va_start(args, fmt);
-	vaf.fmt = fmt;
-	vaf.va = &args;
-	pr_err("qdf: %pV", &vaf);
-	va_end(args);
-
-	return 0;
-}
-#endif
-
 
 static QDF_STATUS qdf_mem_debugfs_init(void)
 {
@@ -1033,7 +1016,10 @@ qdf_mem_domain_check_for_leaks(enum qdf_debug_domain domain,
 
 	qdf_err("Memory leaks detected in %s domain!",
 		qdf_debug_domain_name(domain));
+#ifdef WLAN_DEBUGFS
+	/* the per-allocation printer is only built with WLAN_DEBUGFS */
 	qdf_mem_domain_print(mem_list, qdf_err_printer, NULL);
+#endif
 
 	return mem_list->count;
 }
