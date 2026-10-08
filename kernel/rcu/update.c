@@ -305,8 +305,9 @@ struct lockdep_map rcu_sched_lock_map =
 	STATIC_LOCKDEP_MAP_INIT("rcu_read_lock_sched", &rcu_sched_lock_key);
 EXPORT_SYMBOL_GPL(rcu_sched_lock_map);
 
+static struct lock_class_key rcu_lock_trace_key;
 struct lockdep_map rcu_trace_lock_map =
-	STATIC_LOCKDEP_MAP_INIT("rcu_read_lock_trace", &rcu_lock_key);
+	STATIC_LOCKDEP_MAP_INIT("rcu_read_lock_trace", &rcu_lock_trace_key);
 EXPORT_SYMBOL_GPL(rcu_trace_lock_map);
 
 static struct lock_class_key rcu_callback_key;
