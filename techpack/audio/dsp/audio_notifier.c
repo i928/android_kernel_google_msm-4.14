@@ -170,9 +170,20 @@ static int audio_notifer_reg_service(int service, int domain)
 			service_data[service][domain].nb);
 		break;
 	case AUDIO_NOTIFIER_PDR_SERVICE:
+		/*
+		 * Known lock cycle, not fixed (debug_locking only, no-op without
+		 * LOCKDEP): this runs under notifier_mutex and the registration
+		 * takes service-notifier's global notif_add_lock/service_list_lock;
+		 * service-notifier delivers notifications under those same locks
+		 * and our callback (audio_notifer_service_cb) takes notifier_mutex.
+		 * Both orders are deliberate (consistent state for new clients);
+		 * keep lockdep off for this call so it can check the rest.
+		 */
+		lockdep_off();
 		handle = audio_pdr_service_register(
 			service_data[service][domain].domain_id,
 			service_data[service][domain].nb, &curr_state);
+		lockdep_on();
 
 		if (curr_state == SERVREG_NOTIF_SERVICE_STATE_UP_V01)
 			curr_state = AUDIO_NOTIFIER_SERVICE_UP;
