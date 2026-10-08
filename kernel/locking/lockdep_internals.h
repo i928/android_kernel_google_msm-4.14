@@ -69,13 +69,14 @@ enum {
 #else
 #define MAX_LOCKDEP_ENTRIES	131072UL
 
-#define MAX_LOCKDEP_CHAINS_BITS	16
+/* 16 bits filled up 3 min after boot on sunfish (debug_locking) */
+#define MAX_LOCKDEP_CHAINS_BITS	18
 
 /*
  * Stack-trace: tightly packed array of stack backtrace
  * addresses. Protected by the hash_lock.
  */
-#define MAX_STACK_TRACE_ENTRIES	524288UL
+#define MAX_STACK_TRACE_ENTRIES	1048576UL
 #endif
 
 #define MAX_LOCKDEP_CHAINS	(1UL << MAX_LOCKDEP_CHAINS_BITS)
