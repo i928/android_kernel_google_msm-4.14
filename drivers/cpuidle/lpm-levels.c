@@ -880,7 +880,7 @@ static int lpm_cpuidle_enter(struct cpuidle_device *dev,
 	cpu_prepare(cpu, idx, true);
 	cluster_prepare(cpu->parent, cpumask, idx, true, start_time);
 
-	trace_cpu_idle_enter(idx);
+	trace_cpu_idle_enter_rcuidle(idx);
 	lpm_stats_cpu_enter(idx, start_time);
 
 	if (need_resched())
@@ -895,7 +895,7 @@ exit:
 	cluster_unprepare(cpu->parent, cpumask, idx, true, end_time, success);
 	cpu_unprepare(cpu, idx, true);
 	dev->last_residency = ktime_us_delta(ktime_get(), start);
-	trace_cpu_idle_exit(idx, success);
+	trace_cpu_idle_exit_rcuidle(idx, success);
 
 	if (cpu->bias) {
 		biastimer_cancel();
