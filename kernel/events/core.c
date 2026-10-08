@@ -4642,7 +4642,16 @@ int perf_event_release_kernel(struct perf_event *event)
 {
 	int ret;
 
-	mutex_lock(&pmus_lock);
+	/*
+	 * pmus_lock is held here only as a CPU-offline barrier (1fc690b7b8c6).
+	 * Lockdep then finds cpu_hotplug_lock -> pmus_lock -> event_mutex
+	 * (perf_trace_destroy) -> trace_types_lock (module load) ->
+	 * cpu_hotplug_lock (tracefs instance_mkdir -> ring buffer alloc): a
+	 * deadlock needing hotplug + perf release + module load + instance
+	 * mkdir at once. Separate subclass so it doesn't turn lockdep off
+	 * (debug_locking); same as mutex_lock() without LOCKDEP.
+	 */
+	mutex_lock_nested(&pmus_lock, SINGLE_DEPTH_NESTING);
 	ret = __perf_event_release_kernel(event);
 	mutex_unlock(&pmus_lock);
 
