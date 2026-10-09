@@ -52,6 +52,8 @@ struct service_info {
 	int                             num_of_clients;
 	/* List of all clients registered to the service and domain */
 	struct srcu_notifier_head       client_nb_list;
+	/* Set by a service callback, so registration keeps its newer state */
+	bool                            cb_state_set;
 };
 
 static int audio_notifer_ssr_adsp_cb(struct notifier_block *this,
@@ -110,6 +112,15 @@ static bool audio_notif_drv_registered;
 /* Master list of all audio notifier clients */
 struct list_head   client_list;
 struct mutex       notifier_mutex;
+/*
+ * Serialises service callbacks (state + client notification) with client
+ * registration. Separate from notifier_mutex: the service-notifier calls
+ * our callback with its notif_add_lock/service_list_lock held, and we
+ * register with it (taking those locks) under notifier_mutex, so the
+ * callback must not take notifier_mutex. Order: notifier_mutex ->
+ * service-notifier locks -> notifier_cb_mutex; nothing nests inside it.
+ */
+static DEFINE_MUTEX(notifier_cb_mutex);
 
 static int audio_notifer_get_default_service(int domain)
 {
@@ -163,6 +174,10 @@ static int audio_notifer_reg_service(int service, int domain)
 	int ret = 0;
 	int curr_state = AUDIO_NOTIFIER_SERVICE_DOWN;
 
+	mutex_lock(&notifier_cb_mutex);
+	service_data[service][domain].cb_state_set = false;
+	mutex_unlock(&notifier_cb_mutex);
+
 	switch (service) {
 	case AUDIO_NOTIFIER_SSR_SERVICE:
 		handle = audio_ssr_register(
@@ -170,20 +185,9 @@ static int audio_notifer_reg_service(int service, int domain)
 			service_data[service][domain].nb);
 		break;
 	case AUDIO_NOTIFIER_PDR_SERVICE:
-		/*
-		 * Known lock cycle, not fixed (debug_locking only, no-op without
-		 * LOCKDEP): this runs under notifier_mutex and the registration
-		 * takes service-notifier's global notif_add_lock/service_list_lock;
-		 * service-notifier delivers notifications under those same locks
-		 * and our callback (audio_notifer_service_cb) takes notifier_mutex.
-		 * Both orders are deliberate (consistent state for new clients);
-		 * keep lockdep off for this call so it can check the rest.
-		 */
-		lockdep_off();
 		handle = audio_pdr_service_register(
 			service_data[service][domain].domain_id,
 			service_data[service][domain].nb, &curr_state);
-		lockdep_on();
 
 		if (curr_state == SERVREG_NOTIF_SERVICE_STATE_UP_V01)
 			curr_state = AUDIO_NOTIFIER_SERVICE_UP;
@@ -202,8 +206,12 @@ static int audio_notifer_reg_service(int service, int domain)
 		ret = -EINVAL;
 		goto done;
 	}
-	service_data[service][domain].state = curr_state;
+	mutex_lock(&notifier_cb_mutex);
+	/* a callback may already have delivered a newer state */
+	if (!service_data[service][domain].cb_state_set)
+		service_data[service][domain].state = curr_state;
 	service_data[service][domain].handle = handle;
+	mutex_unlock(&notifier_cb_mutex);
 
 	pr_info("%s: service %s is in use\n",
 		__func__, service_data[service][domain].name);
@@ -280,6 +288,7 @@ static int audio_notifer_reg_client_service(struct client_data *client_data,
 	}
 
 	client_data->service = service;
+	mutex_lock(&notifier_cb_mutex);
 	srcu_notifier_chain_register(
 		&service_data[service][domain].client_nb_list,
 		client_data->nb);
@@ -300,6 +309,7 @@ static int audio_notifer_reg_client_service(struct client_data *client_data,
 		(void)client_data->nb->notifier_call(client_data->nb,
 			service_data[service][domain].state, &data);
 	}
+	mutex_unlock(&notifier_cb_mutex);
 done:
 	return ret;
 }
@@ -475,9 +485,10 @@ static int audio_notifer_service_cb(unsigned long opcode,
 	pr_debug("%s: service %s, opcode 0x%lx\n",
 		__func__, service_data[service][domain].name, notifier_opcode);
 
-	mutex_lock(&notifier_mutex);
+	mutex_lock(&notifier_cb_mutex);
 
 	service_data[service][domain].state = notifier_opcode;
+	service_data[service][domain].cb_state_set = true;
 	ret = srcu_notifier_call_chain(&service_data[service][domain].
 		client_nb_list, notifier_opcode, &data);
 	if (ret < 0)
@@ -485,7 +496,7 @@ static int audio_notifer_service_cb(unsigned long opcode,
 			__func__, ret, service_data[service][domain].name,
 			notifier_opcode);
 
-	mutex_unlock(&notifier_mutex);
+	mutex_unlock(&notifier_cb_mutex);
 done:
 	return NOTIFY_OK;
 }
