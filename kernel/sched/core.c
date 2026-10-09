@@ -5237,7 +5237,17 @@ bool is_sched_lib_based_app(pid_t pid)
 	if (!mm)
 		goto put_task_struct;
 
-	down_read(&mm->mmap_sem);
+	/*
+	 * Called under the cpufreq policy rwsem (show_cpuinfo_max_freq for the
+	 * reading task); that task may itself be holding or waiting for its
+	 * mmap_sem in paths that lead back to policy->rwsem (V4L2/vidc buffer
+	 * mmap -> ion/CMA -> cpu hotplug). Don't block here: a busy mmap_sem
+	 * just means 'not a listed app'.
+	 */
+	if (!down_read_trylock(&mm->mmap_sem)) {
+		mmput(mm);
+		goto put_task_struct;
+	}
 	for (vma = mm->mmap; vma ; vma = vma->vm_next) {
 		if (vma->vm_file && vma->vm_flags & VM_EXEC) {
 			name = d_path(&vma->vm_file->f_path,
