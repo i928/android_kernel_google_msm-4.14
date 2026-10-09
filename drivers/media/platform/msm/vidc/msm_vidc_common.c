@@ -4974,6 +4974,7 @@ int msm_comm_release_scratch_buffers(struct msm_vidc_inst *inst,
 	/* what is left is kept for reuse */
 	mutex_lock(&inst->scratchbufs.lock);
 	list_splice_tail(&release_list, &inst->scratchbufs.list);
+	mutex_unlock(&inst->scratchbufs.lock);
 	return rc;
 }
 
