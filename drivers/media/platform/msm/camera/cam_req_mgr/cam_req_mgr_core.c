@@ -2917,7 +2917,14 @@ int cam_req_mgr_link(struct cam_req_mgr_ver_info *link_info)
 	root_dev.session_hdl = link_info->u.link_info_v1.session_hdl;
 	root_dev.priv = (void *)link;
 	root_dev.dev_id = CAM_CRM;
-	mutex_lock(&link->lock);
+	/*
+	 * Devices are queried / linked (their own mutexes) under the new link's
+	 * lock; devices add requests to their link (link lock) under those
+	 * mutexes. A device is only attached to this link inside this section,
+	 * so both can't meet on one link; all links share one lock class.
+	 * Separate subclass here (debug variants; no-op otherwise).
+	 */
+	mutex_lock_nested(&link->lock, SINGLE_DEPTH_NESTING);
 	/* Create unique dev handle for link */
 	link->link_hdl = cam_create_device_hdl(&root_dev);
 	if (link->link_hdl < 0) {
@@ -3032,7 +3039,14 @@ int cam_req_mgr_link_v2(struct cam_req_mgr_ver_info *link_info)
 	root_dev.session_hdl = link_info->u.link_info_v2.session_hdl;
 	root_dev.priv = (void *)link;
 
-	mutex_lock(&link->lock);
+	/*
+	 * Devices are queried / linked (their own mutexes) under the new link's
+	 * lock; devices add requests to their link (link lock) under those
+	 * mutexes. A device is only attached to this link inside this section,
+	 * so both can't meet on one link; all links share one lock class.
+	 * Separate subclass here (debug variants; no-op otherwise).
+	 */
+	mutex_lock_nested(&link->lock, SINGLE_DEPTH_NESTING);
 	/* Create unique dev handle for link */
 	link->link_hdl = cam_create_device_hdl(&root_dev);
 	if (link->link_hdl < 0) {
