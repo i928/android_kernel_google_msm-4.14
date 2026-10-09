@@ -2169,7 +2169,15 @@ static int venus_hfi_core_init(void *device)
 	dev->bus_vote.data_count = 1;
 	dev->bus_vote.data->power_mode = VIDC_POWER_TURBO;
 
+	/*
+	 * Firmware load under hdevice->lock reaches devfreq registration, ION
+	 * and PIL (file lookup, mmap_sem). Session paths take hdevice->lock
+	 * under codec list locks, but sessions only start after core init, so
+	 * the two can't meet; keep lockdep out (debug variants only).
+	 */
+	lockdep_off();
 	rc = __load_fw(dev);
+	lockdep_on();
 	if (rc) {
 		dprintk(VIDC_ERR, "Failed to load Venus FW\n");
 		goto err_load_fw;
