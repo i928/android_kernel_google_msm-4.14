@@ -2787,13 +2787,24 @@ static int __cam_req_mgr_unlink(struct cam_req_mgr_core_link *link)
 		CAM_ERR(CAM_CORE,
 			"Unlink for all devices was not successful");
 
+	/*
+	 * Don't destroy the workqueue under link->lock: link work takes
+	 * session and device (sensor) mutexes, and devices add requests to
+	 * this link (link->lock) under those mutexes. The link is IDLE now and
+	 * cam_req_mgr_cb_add_req() checks that under link->lock, so one
+	 * lock/unlock waits out an add_req already past the check; later ones
+	 * bail without enqueueing.
+	 */
 	mutex_lock(&link->lock);
+	mutex_unlock(&link->lock);
+
 	/* Destroy timer of link */
 	crm_timer_exit(&link->watchdog);
 
 	/* Destroy workq of link */
 	cam_req_mgr_workq_destroy(&link->workq);
 
+	mutex_lock(&link->lock);
 	/* Cleanup request tables and unlink devices */
 	__cam_req_mgr_destroy_link_info(link);
 
