@@ -7968,8 +7968,14 @@ static int afe_set_cal(int32_t cal_type, size_t data_size,
 		goto done;
 	}
 
+	/*
+	 * Maps memory via afe_map_cal_data(), which since 7fa106ccd70d relies
+	 * on the caller holding afe_cmd_lock: same lock order as afe_alloc_cal.
+	 */
+	mutex_lock(&this_afe.afe_cmd_lock);
 	ret = cal_utils_set_cal(data_size, data,
 		this_afe.cal_data[cal_index], 0, NULL);
+	mutex_unlock(&this_afe.afe_cmd_lock);
 	if (ret < 0) {
 		pr_err("%s: cal_utils_set_cal failed, ret = %d, cal type = %d!\n",
 			__func__, ret, cal_type);
