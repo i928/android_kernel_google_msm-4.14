@@ -155,6 +155,13 @@ struct afe_ctl {
 	struct aanc_data aanc_info;
 	struct mutex afe_cmd_lock;
 	struct mutex afe_apr_lock;
+	/*
+	 * Serialises shared-memory map commands with reading the handle they
+	 * return (mem_map_cal_index / mmap_handle, filled in by the response
+	 * callback). Innermost: taken under afe_cmd_lock or a cal type lock,
+	 * nothing is taken under it.
+	 */
+	struct mutex afe_mmap_lock;
 	int set_custom_topology;
 	int dev_acdb_id[AFE_MAX_PORTS];
 	routing_cb rt_cb;
@@ -2364,11 +2371,13 @@ static int remap_cal_data(struct cal_block_data *cal_block, int cal_index)
 
 	if ((cal_block->map_data.map_size > 0) &&
 		(cal_block->map_data.q6map_handle == 0)) {
+		mutex_lock(&this_afe.afe_mmap_lock);
 		atomic_set(&this_afe.mem_map_cal_index, cal_index);
 		ret = afe_cmd_memory_map(cal_block->cal_data.paddr,
 				cal_block->map_data.map_size);
 		atomic_set(&this_afe.mem_map_cal_index, -1);
 		if (ret < 0) {
+			mutex_unlock(&this_afe.afe_mmap_lock);
 			pr_err("%s: mmap did not work! size = %zd ret %d\n",
 				__func__,
 				cal_block->map_data.map_size, ret);
@@ -2380,6 +2389,7 @@ static int remap_cal_data(struct cal_block_data *cal_block, int cal_index)
 		}
 		cal_block->map_data.q6map_handle = atomic_read(&this_afe.
 			mem_map_cal_handles[cal_index]);
+		mutex_unlock(&this_afe.afe_mmap_lock);
 	}
 done:
 	return ret;
@@ -5647,8 +5657,10 @@ int afe_memory_map(phys_addr_t dma_addr_p, u32 dma_buf_sz,
 
 	mutex_lock(&this_afe.afe_cmd_lock);
 	ac->mem_map_handle = 0;
+	mutex_lock(&this_afe.afe_mmap_lock);
 	ret = afe_cmd_memory_map(dma_addr_p, dma_buf_sz);
 	if (ret < 0) {
+		mutex_unlock(&this_afe.afe_mmap_lock);
 		pr_err("%s: afe_cmd_memory_map failed %d\n",
 			__func__, ret);
 
@@ -5656,6 +5668,7 @@ int afe_memory_map(phys_addr_t dma_addr_p, u32 dma_buf_sz,
 		return ret;
 	}
 	ac->mem_map_handle = this_afe.mmap_handle;
+	mutex_unlock(&this_afe.afe_mmap_lock);
 	mutex_unlock(&this_afe.afe_cmd_lock);
 
 	return ret;
@@ -7898,28 +7911,20 @@ int afe_alloc_cal(int32_t cal_type, size_t data_size,
 		goto done;
 	}
 
-	mutex_lock(&this_afe.afe_cmd_lock);
 	/*
-	 * Known lock cycle, not fixed (debug_locking only, no-op without
-	 * LOCKDEP): importing the cal buffer may power on the SMMU and take
-	 * clk prepare_lock under afe_cmd_lock, while audio_ext_clk_prepare()
-	 * takes afe_cmd_lock under prepare_lock. afe_cmd_lock here is
-	 * deliberate (7fa106ccd70d); the real fix is for the audio ext clock not
-	 * to send AFE commands under prepare_lock. Keep lockdep off for this
-	 * call so it can keep checking the rest of the system.
+	 * No afe_cmd_lock here (it was taken since 7fa106ccd70d): it would be
+	 * held across the ION import (SMMU, clk prepare_lock), and audio clocks
+	 * take afe_cmd_lock under prepare_lock. The import now happens outside
+	 * any lock and the memory map is serialised by afe_mmap_lock.
 	 */
-	lockdep_off();
 	ret = cal_utils_alloc_cal(data_size, data,
 		this_afe.cal_data[cal_index], 0, NULL);
-	lockdep_on();
 	if (ret < 0) {
 		pr_err("%s: cal_utils_alloc_block failed, ret = %d, cal type = %d!\n",
 			__func__, ret, cal_type);
 		ret = -EINVAL;
-		mutex_unlock(&this_afe.afe_cmd_lock);
 		goto done;
 	}
-	mutex_unlock(&this_afe.afe_cmd_lock);
 done:
 	return ret;
 }
@@ -8401,11 +8406,14 @@ static int afe_map_cal_data(int32_t cal_type,
 		goto done;
 	}
 
+	/* called under the cal type lock: no afe_cmd_lock here, see q6afe */
+	mutex_lock(&this_afe.afe_mmap_lock);
 	atomic_set(&this_afe.mem_map_cal_index, cal_index);
 	ret = afe_cmd_memory_map(cal_block->cal_data.paddr,
 			cal_block->map_data.map_size);
 	atomic_set(&this_afe.mem_map_cal_index, -1);
 	if (ret < 0) {
+		mutex_unlock(&this_afe.afe_mmap_lock);
 		pr_err("%s: mmap did not work! size = %zd ret %d\n",
 			__func__,
 			cal_block->map_data.map_size, ret);
@@ -8417,6 +8425,7 @@ static int afe_map_cal_data(int32_t cal_type,
 	}
 	cal_block->map_data.q6map_handle = atomic_read(&this_afe.
 		mem_map_cal_handles[cal_index]);
+	mutex_unlock(&this_afe.afe_mmap_lock);
 done:
 	return ret;
 }
@@ -8591,15 +8600,18 @@ int afe_map_rtac_block(struct rtac_cal_block_data *cal_block)
 		goto done;
 	}
 
+	mutex_lock(&this_afe.afe_mmap_lock);
 	result = afe_cmd_memory_map(cal_block->cal_data.paddr,
 		cal_block->map_data.map_size);
 	if (result < 0) {
+		mutex_unlock(&this_afe.afe_mmap_lock);
 		pr_err("%s: afe_cmd_memory_map failed for addr = 0x%pK, size = %d, err %d\n",
 			__func__, &cal_block->cal_data.paddr,
 			cal_block->map_data.map_size, result);
 		return result;
 	}
 	cal_block->map_data.map_handle = this_afe.mmap_handle;
+	mutex_unlock(&this_afe.afe_mmap_lock);
 
 done:
 	return result;
@@ -8660,6 +8672,7 @@ int __init afe_init(void)
 	this_afe.th_ftm_cfg.mode = MSM_SPKR_PROT_DISABLED;
 	this_afe.ex_ftm_cfg.mode = MSM_SPKR_PROT_DISABLED;
 	mutex_init(&this_afe.afe_cmd_lock);
+	mutex_init(&this_afe.afe_mmap_lock);
 	mutex_init(&this_afe.afe_apr_lock);
 	for (i = 0; i < AFE_MAX_PORTS; i++) {
 		this_afe.afe_cal_mode[i] = AFE_CAL_MODE_DEFAULT;
@@ -8715,6 +8728,7 @@ void afe_exit(void)
 
 	config_debug_fs_exit();
 	mutex_destroy(&this_afe.afe_cmd_lock);
+	mutex_destroy(&this_afe.afe_mmap_lock);
 	mutex_destroy(&this_afe.afe_apr_lock);
 	wakeup_source_trash(&wl.ws);
 }
