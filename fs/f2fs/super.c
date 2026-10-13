@@ -2095,7 +2095,7 @@ static void default_options(struct f2fs_sb_info *sbi)
 static int f2fs_enable_quotas(struct super_block *sb);
 #endif
 
-static int f2fs_disable_checkpoint(struct f2fs_sb_info *sbi)
+static int f2fs_disable_checkpoint(struct f2fs_sb_info *sbi, bool mounting)
 {
 	unsigned int s_flags = sbi->sb->s_flags;
 	struct cp_control cpc;
@@ -2114,6 +2114,17 @@ static int f2fs_disable_checkpoint(struct f2fs_sb_info *sbi)
 	unusable = f2fs_get_unusable_blocks(sbi);
 	if (!f2fs_disable_cp_again(sbi, unusable))
 		goto skip_gc;
+
+	/*
+	 * At mount, fail fast instead of running foreground GC for
+	 * DISABLE_TIME: fs_mgr retries with checkpoint=disable:10%, 20%, ...
+	 * and the 0% attempt only burns ~9 s (sunfish post-OTA boot) before
+	 * returning -EAGAIN anyway.
+	 */
+	if (mounting) {
+		err = -EAGAIN;
+		goto restore_flag;
+	}
 
 	f2fs_update_time(sbi, DISABLE_TIME);
 
@@ -2397,7 +2408,7 @@ static int f2fs_remount(struct super_block *sb, int *flags, char *data)
 
 	if (enable_checkpoint == !!test_opt(sbi, DISABLE_CHECKPOINT)) {
 		if (test_opt(sbi, DISABLE_CHECKPOINT)) {
-			err = f2fs_disable_checkpoint(sbi);
+			err = f2fs_disable_checkpoint(sbi, false);
 			if (err)
 				goto restore_discard;
 		} else {
@@ -4345,7 +4356,7 @@ reset_checkpoint:
 	clear_sbi_flag(sbi, SBI_POR_DOING);
 
 	if (test_opt(sbi, DISABLE_CHECKPOINT)) {
-		err = f2fs_disable_checkpoint(sbi);
+		err = f2fs_disable_checkpoint(sbi, true);
 		if (err)
 			goto sync_free_meta;
 	} else if (is_set_ckpt_flags(sbi, CP_DISABLED_FLAG)) {
