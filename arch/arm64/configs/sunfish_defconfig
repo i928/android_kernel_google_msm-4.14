@@ -694,6 +694,23 @@ CONFIG_PSTORE_PMSG=y
 CONFIG_PSTORE_RAM=y
 CONFIG_BLDR_DEBUG_LOG=y
 CONFIG_EROFS_FS=y
+CONFIG_EROFS_FS_XATTR=y
+CONFIG_EROFS_FS_POSIX_ACL=y
+CONFIG_EROFS_FS_SECURITY=y
+CONFIG_EROFS_FS_ZIP=y
+# EROFS per-cpu decompression kthreads (CONFIG_EROFS_FS_PCPU_KTHREAD{,_HIPRI},
+# set ON below). They target scheduling latency of
+# decompression work, not throughput. Measured 2026-09-28..29 with
+# erofs_bench.sh v2 (tracefs work-ready -> running during 20 cold launches each
+# of freenovel/texexpress/thsrc, plus fio and dd), regular and performance
+# compiler builds:
+#                 median     p95      max
+#   pcpu ON     14-18 us  59-73 us  1.8-3.5 ms
+#   pcpu OFF     7-9 us  257-338 us 3.5-9.5 ms   (workqueue)
+# ON cuts the tail ~4-5x for a slightly higher median. App launch (thsrc
+# 597-660 vs 645-662 ms), dd and fio show no measurable difference either way.
+# Kept ON. (The 2026-09-07 throughput-only A/B that left it off measured the
+# wrong thing: dd spread was larger than any gap.) Reports: ~/ksu/erofs-bench-*.
 CONFIG_EROFS_FS_PCPU_KTHREAD=y
 CONFIG_EROFS_FS_PCPU_KTHREAD_HIPRI=y
 # CONFIG_NETWORK_FILESYSTEMS is not set
