@@ -213,6 +213,7 @@ void fuse_change_attributes(struct inode *inode, struct fuse_attr *attr,
 	struct fuse_conn *fc = get_fuse_conn(inode);
 	struct fuse_inode *fi = get_fuse_inode(inode);
 	bool is_wb = fc->writeback_cache;
+	bool trust_size;
 	loff_t oldsize;
 	struct timespec64 old_mtime;
 
@@ -230,13 +231,30 @@ void fuse_change_attributes(struct inode *inode, struct fuse_attr *attr,
 	/*
 	 * In case of writeback_cache enabled, the cached writes beyond EOF
 	 * extend local i_size without keeping userspace server in sync. So,
-	 * attr->size coming from server can be stale. We cannot trust it.
+	 * attr->size coming from server can be stale. We cannot trust it,
+	 * unless no file is open for writing through FUSE: then nothing is
+	 * cached locally and the server is authoritative. Android's
+	 * MediaProvider hands out lower-fs fds, so files can grow behind
+	 * our back; without this a video recorded that way stays cut at
+	 * the size it had when FUSE first looked it up.
 	 */
-	if (!is_wb || !S_ISREG(inode->i_mode))
+	trust_size = !is_wb || !S_ISREG(inode->i_mode) ||
+		     list_empty(&fi->write_files);
+	if (trust_size)
 		i_size_write(inode, attr->size);
+	if (is_wb && trust_size && S_ISREG(inode->i_mode)) {
+		inode->i_mtime.tv_sec   = attr->mtime;
+		inode->i_mtime.tv_nsec  = attr->mtimensec;
+		inode->i_ctime.tv_sec   = attr->ctime;
+		inode->i_ctime.tv_nsec  = attr->ctimensec;
+	}
 	spin_unlock(&fc->lock);
 
-	if (!is_wb && S_ISREG(inode->i_mode)) {
+	if (is_wb && trust_size && S_ISREG(inode->i_mode) &&
+	    oldsize != attr->size) {
+		truncate_pagecache(inode, attr->size);
+		invalidate_inode_pages2(inode->i_mapping);
+	} else if (!is_wb && S_ISREG(inode->i_mode)) {
 		bool inval = false;
 
 		if (oldsize != attr->size) {
