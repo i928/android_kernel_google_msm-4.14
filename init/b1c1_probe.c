@@ -217,6 +217,7 @@ static int b1c1_log_thread(void *unused)
  * the whole log to the unencrypted /metadata partition every 5 s instead.
  */
 #define SAVE_PATH	"/metadata/b1c1-kmsg.txt"
+#define SAVE_RELPATH	"metadata/b1c1-kmsg.txt"
 #define SAVE_BUF	(64 * 1024)
 static struct kmsg_dumper save_dumper;
 
@@ -240,7 +241,7 @@ static void b1c1_save_log(char *buf)
 		return;
 	get_fs_root(init->fs, &root);
 	put_task_struct(init);
-	f = file_open_root(root.dentry, root.mnt, SAVE_PATH + 1,
+	f = file_open_root(root.dentry, root.mnt, SAVE_RELPATH,
 			   O_WRONLY | O_CREAT | O_TRUNC, 0600);
 	path_put(&root);
 	if (IS_ERR(f)) {
