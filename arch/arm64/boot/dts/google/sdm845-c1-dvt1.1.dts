@@ -26,3 +26,24 @@
 	qcom,msm-id = <321 0x20001>;
 	qcom,board-id = <0x00011505 0>;
 };
+
+/* TEMP bring-up: kernel console on the bootloader splash buffer */
+/ {
+	framebuffer@9d400000 {
+		compatible = "simple-framebuffer";
+		reg = <0 0x9d400000 0 (1440 * 2960 * 4)>;
+		width = <1440>;
+		height = <2960>;
+		stride = <(1440 * 4)>;
+		format = "a8r8g8b8";
+		status = "okay";
+	};
+};
+
+&mdss_mdp {
+	status = "disabled";
+};
+
+&wdog {
+	status = "disabled";
+};
