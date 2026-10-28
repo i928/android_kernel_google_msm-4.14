@@ -49,10 +49,6 @@
 };
 
 /* TEMP: dwc3-msm loops in deferred probe; take USB out to see what's next */
-&usb0 {
-	status = "disabled";
-};
-
 /* TEMP: keep the bootloader's AMOLED AVDD/ELVDD rails untouched (splash) */
 &pmi8998_wled {
 	status = "disabled";
