@@ -1013,7 +1013,9 @@ static int __qusb_phy_probe(struct platform_device *pdev)
 						resource_size(res));
 
 	qphy->skip_efuse_reg = of_property_read_bool(dev->of_node,
-						     "skip_efuse_reg");
+						     "skip_efuse_reg") ||
+			       of_property_read_bool(dev->of_node,
+						     "google,skip_efuse_reg");
 
 	/* ref_clk_src is needed irrespective of SE_CLK or DIFF_CLK usage */
 	qphy->ref_clk_src = devm_clk_get(dev, "ref_clk_src");
