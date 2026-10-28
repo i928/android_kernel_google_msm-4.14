@@ -263,6 +263,8 @@ static void b1c1_save_log(char *buf)
 	if (last_err)
 		pr_info("b1c1 save: ok\n");
 	last_err = 0;
+	/* Sticky debug lines first: the ring may have lost their printk */
+	used = scnprintf(buf, SAVE_BUF, "%s\n%s\n", b1c1_status, b1c1_status2);
 	kmsg_dump_rewind(&save_dumper);
 	while (kmsg_dump_get_line(&save_dumper, false, buf + used,
 				  SAVE_BUF - used, &len)) {
