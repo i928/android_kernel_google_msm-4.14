@@ -200,7 +200,8 @@ static int b1c1_log_thread(void *unused)
 		/* Warm reboot to fastboot so pstore keeps this boot's log */
 		if (time_after(jiffies, INITIAL_JIFFIES + 90 * HZ)) {
 			pr_emerg("b1c1: 90 s, rebooting to bootloader\n");
-			kernel_restart("bootloader");
+			/* skip device_shutdown(): a driver hangs there */
+			machine_restart("bootloader");
 		}
 	}
 	return 0;
