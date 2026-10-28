@@ -57,3 +57,12 @@
 &qupv3_se2_i2c {
 	status = "disabled";
 };
+
+/* TEMP: keep the bootloader's AMOLED AVDD/ELVDD rails untouched (splash) */
+&pmi8998_wled {
+	status = "disabled";
+};
+
+&labibb {
+	status = "disabled";
+};
