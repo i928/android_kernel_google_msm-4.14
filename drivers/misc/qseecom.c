@@ -1,3 +1,4 @@
+#define DEBUG
 /*
  * QTI Secure Execution Environment Communicator (QSEECOM) driver
  *
@@ -7435,7 +7436,23 @@ static void __qseecom_clean_data_sglistinfo(struct qseecom_dev_handle *data)
 	}
 }
 
+static long __qseecom_ioctl(struct file *file,
+			unsigned int cmd, unsigned long arg);
+
+/* TEMP b1c1: log failing ioctls and every keymaster call (KM SIGABRT) */
 static long qseecom_ioctl(struct file *file,
+			unsigned int cmd, unsigned long arg)
+{
+	long ret = __qseecom_ioctl(file, cmd, arg);
+
+	if (ret < 0 || strstr(current->comm, "keymaster"))
+		pr_info("b1c1 qsee %s[%d] cmd %x nr %u ret %ld\n",
+			current->comm, task_pid_nr(current), cmd,
+			_IOC_NR(cmd), ret);
+	return ret;
+}
+
+static long __qseecom_ioctl(struct file *file,
 			unsigned int cmd, unsigned long arg)
 {
 	int ret = 0;
