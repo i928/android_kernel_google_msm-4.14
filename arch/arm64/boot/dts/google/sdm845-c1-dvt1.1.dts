@@ -66,3 +66,8 @@
 &labibb {
 	status = "disabled";
 };
+
+/* TEMP: sde_rotator drops the MDSS GDSC vote after probe and kills the splash */
+&mdss_rotator {
+	status = "disabled";
+};
