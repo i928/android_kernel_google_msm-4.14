@@ -465,7 +465,13 @@ static int qcom_llcc_erp_probe(struct platform_device *pdev)
 
 	platform_set_drvdata(pdev, edev_ctl);
 	if (irq > 0) {
-		qcom_llcc_core_setup(llcc_map, drv->b_off);
+		/*
+		 * On SDM845 the secure world owns these registers and has
+		 * already enabled the ECC interrupts; touching them from HLOS
+		 * makes it reset the board.
+		 */
+		if (!of_machine_is_compatible("qcom,sdm845"))
+			qcom_llcc_core_setup(llcc_map, drv->b_off);
 		drv->ecc_irq = irq;
 		rc = devm_request_irq(dev, drv->ecc_irq, llcc_ecc_irq_handler,
 				IRQF_SHARED | IRQF_ONESHOT | IRQF_TRIGGER_HIGH,
