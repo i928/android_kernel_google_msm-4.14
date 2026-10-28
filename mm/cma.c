@@ -560,6 +560,11 @@ struct page *cma_alloc(struct cma *cma, size_t count, unsigned int align,
 	if (ret && !(gfp_mask & __GFP_NOWARN)) {
 		pr_info("%s: alloc failed, req-size: %zu pages, ret: %d\n",
 			__func__, count, ret);
+		/* TEMP b1c1: short line for the on-screen log */
+		pr_info("CMA %s c%zu r%d u%u/%lu\n", cma->name ? cma->name : "?",
+			count, ret,
+			bitmap_weight(cma->bitmap, (int)cma_bitmap_maxno(cma)),
+			cma_bitmap_maxno(cma));
 		cma_debug_show_areas(cma);
 	}
 
