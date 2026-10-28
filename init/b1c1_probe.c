@@ -15,6 +15,7 @@
 #include <linux/kmsg_dump.h>
 #include <linux/kthread.h>
 #include <linux/delay.h>
+#include <linux/reboot.h>
 
 #define SPLASH_BASE	0x9d400000UL
 #define FB_W		1440
@@ -214,8 +215,24 @@ static int b1c1_panic(struct notifier_block *nb, unsigned long ev, void *msg)
 
 static struct notifier_block b1c1_panic_nb = { .notifier_call = b1c1_panic };
 
+/* Power-off/reboot: put the log on screen and hold it long enough to film */
+static int b1c1_reboot(struct notifier_block *nb, unsigned long ev, void *cmd)
+{
+	pr_emerg("b1c1: %s %s\n", ev == SYS_POWER_OFF ? "POWER OFF" :
+		 ev == SYS_HALT ? "HALT" : "REBOOT", cmd ? (char *)cmd : "");
+	b1c1_log_draw(false);
+	mdelay(5000);
+	return NOTIFY_DONE;
+}
+
+static struct notifier_block b1c1_reboot_nb = {
+	.notifier_call = b1c1_reboot,
+	.priority = INT_MAX,
+};
+
 static int __init b1c1_panic_init(void)
 {
+	register_reboot_notifier(&b1c1_reboot_nb);
 	atomic_notifier_chain_register(&panic_notifier_list, &b1c1_panic_nb);
 	return 0;
 }
