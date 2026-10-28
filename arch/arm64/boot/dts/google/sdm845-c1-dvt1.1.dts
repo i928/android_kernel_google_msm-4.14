@@ -47,3 +47,8 @@
 &mdss_mdp {
 	status = "disabled";
 };
+
+/* TEMP: dwc3-msm loops in deferred probe; take USB out to see what's next */
+&usb0 {
+	status = "disabled";
+};
