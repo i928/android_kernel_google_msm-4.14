@@ -1,0 +1,237 @@
+/* Copyright (c) 2017, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+#include "dsi-panel-sw43408-dsc-fhd-cmd.dtsi"
+#include "dsi-panel-s6e3ha8-dsc-wqhd-cmd.dtsi"
+
+&sde_te_active {
+	mux {
+		pins = "gpio12";
+	};
+	config {
+		pins = "gpio12";
+	};
+};
+
+&sde_te_suspend {
+	mux {
+		pins = "gpio12";
+	};
+	config {
+		pins = "gpio12";
+	};
+};
+
+&tlmm {
+	se8_spiflash: se8_spiflash {
+		mux {
+			pins = "gpio65", "gpio66", "gpio67", "gpio68";
+			function = "gpio";
+		};
+		config {
+			pins = "gpio65", "gpio66", "gpio67", "gpio68";
+			input-enable;
+			bias-disable;
+		};
+	};
+};
+
+&soc {
+	dsi_sw43408_cmd_display: qcom,dsi-display@51 {
+		compatible = "qcom,dsi-display";
+		label = "dsi_sw43408_cmd_display";
+		qcom,display-type = "primary";
+
+		qcom,dsi-ctrl-num = <0>;
+		qcom,dsi-phy-num = <0>;
+		qcom,dsi-select-clocks = "mux_byte_clk0", "mux_pixel_clk0";
+
+		qcom,dsi-panel = <&dsi_sw43408_dsc_fhd_cmd>;
+	};
+
+	dsi_s6e3ha8_cmd_display: qcom,dsi-display@52 {
+		compatible = "qcom,dsi-display";
+		label = "dsi_s6e3ha8_cmd_display";
+		qcom,display-type = "primary";
+
+		qcom,dsi-ctrl-num = <0>;
+		qcom,dsi-phy-num = <0>;
+		qcom,dsi-select-clocks = "mux_byte_clk0", "mux_pixel_clk0";
+
+		qcom,dsi-panel = <&dsi_s6e3ha8_dsc_wqhd_cmd>;
+	};
+
+	sde_dsi: qcom,dsi-display-primary {
+		compatible = "qcom,dsi-display";
+		label = "primary";
+
+		qcom,dsi-ctrl = <&mdss_dsi0>;
+		qcom,dsi-phy = <&mdss_dsi_phy0>;
+
+		clocks = <&mdss_dsi0_pll BYTECLK_MUX_0_CLK>,
+			<&mdss_dsi0_pll PCLK_MUX_0_CLK>;
+		clock-names = "mux_byte_clk0", "mux_pixel_clk0";
+
+		pinctrl-names = "panel_active", "panel_suspend";
+		pinctrl-0 = <&sde_dsi_active &sde_te_active>;
+		pinctrl-1 = <&sde_dsi_suspend &sde_te_suspend>;
+
+		qcom,platform-te-gpio = <&tlmm 12 0>;
+		qcom,panel-te-source = <2>;
+
+		vddi-supply = <&pm8998_l14>;
+		vpnl-supply = <&pm8998_l28>;
+		vci-supply = <&pm8998_l28>;
+		lab-supply = <&lab_regulator>;
+
+		qcom,dsi-display-list =
+			<&dsi_sw43408_cmd_display
+			&dsi_s6e3ha8_cmd_display>;
+	};
+
+	sde_wb: qcom,wb-display@0 {
+		compatible = "qcom,wb-display";
+		cell-index = <0>;
+		label = "wb_display";
+	};
+
+	ext_disp: qcom,msm-ext-disp {
+		compatible = "qcom,msm-ext-disp";
+
+		ext_disp_audio_codec: qcom,msm-ext-disp-audio-codec-rx {
+			compatible = "qcom,msm-ext-disp-audio-codec-rx";
+		};
+	};
+};
+
+/*
+ * Reset is GPIO6
+ * VSYNC/TE is GPIO12 (vsync-source 2)
+ * VDDI is 1p8, L14A source (first one up)
+ * VPNL (POLED_VCI??) is 3.0 L28A source. (second one up)
+ * POLED_GPO0 is also PM845 GPIO2 - > (do not drive)
+ * POLED_GPO1 is also PM845 GPIO5 - > (do not drive)
+ * Single DSI (dsi0)
+ */
+
+
+&mdss_dsi1 {
+	status = "disabled";
+};
+
+&sde_dp {
+	status = "disabled";
+};
+
+&mdss_mdp {
+	connectors = <&sde_rscc &sde_wb &sde_dsi>;
+};
+
+&dsi_sw43408_dsc_fhd_cmd {
+	qcom,panel-supply-entries = <&dsi_panel_pwr_supply_sw43408>;
+	qcom,mdss-dsi-t-clk-post = <0x09>;
+	qcom,mdss-dsi-t-clk-pre = <0x1A>;
+
+	qcom,platform-reset-gpio = <&tlmm 6 0>;
+	qcom,mdss-dsi-display-timings {
+		timing@0 {
+			qcom,mdss-dsi-panel-phy-timings =
+					[00 0E 03 03 1E 1D 04 04 02 03 04 00];
+		};
+	};
+};
+
+&dsi_s6e3ha8_dsc_wqhd_cmd {
+	qcom,panel-supply-entries = <&dsi_panel_pwr_supply_s6e3ha8>;
+
+	qcom,platform-reset-gpio = <&tlmm 6 0>;
+
+	qcom,mdss-dsi-t-clk-post = <0x0D>;
+	qcom,mdss-dsi-t-clk-pre = <0x2F>;
+	qcom,mdss-dsi-display-timings {
+		timing@0 {
+			qcom,mdss-dsi-panel-phy-timings =
+					[00 1E 08 07 24 22 08 08 05 03 04 00];
+		};
+	};
+};
+
+&pmi8998_wled {
+	status = "okay";
+	qcom,disp-type-amoled;
+	qcom,string-cfg = <12>;
+	qcom,avdd-target-voltage-mv = <7600>;
+	qcom,en-cabc;
+};
+
+&labibb {
+	status = "okay";
+	qcom,qpnp-labibb-mode = "amoled";
+	qcom,swire-control;
+	qcom,aod-mode;
+};
+
+&pm8998_l28 {
+	qcom,init-voltage = <3000000>;
+};
+
+&soc {
+	dsi_panel_pwr_supply_sw43408: dsi_panel_pwr_supply_sw43408 {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		qcom,panel-supply-entry@0 {
+			reg = <0>;
+			qcom,supply-name = "vddi";
+			qcom,supply-min-voltage = <1800000>;
+			qcom,supply-max-voltage = <1800000>;
+			qcom,supply-enable-load = <62000>;
+			qcom,supply-disable-load = <80>;
+			qcom,supply-post-on-sleep = <0>;
+		};
+
+		qcom,panel-supply-entry@1 {
+			reg = <1>;
+			qcom,supply-name = "vpnl";
+			qcom,supply-min-voltage = <3000000>;
+			qcom,supply-max-voltage = <3000000>;
+			qcom,supply-enable-load = <857000>;
+			qcom,supply-disable-load = <0>;
+			qcom,supply-post-on-sleep = <1>;
+		};
+	};
+
+	dsi_panel_pwr_supply_s6e3ha8: dsi_panel_pwr_supply_s6e3ha8 {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		qcom,panel-supply-entry@0 {
+			reg = <0>;
+			qcom,supply-name = "vddi";
+			qcom,supply-min-voltage = <1800000>;
+			qcom,supply-max-voltage = <1800000>;
+			qcom,supply-enable-load = <100000>;
+			qcom,supply-disable-load = <100>;
+			qcom,supply-post-on-sleep = <0>;
+		};
+
+		qcom,panel-supply-entry@1 {
+			reg = <1>;
+			qcom,supply-name = "vci";
+			qcom,supply-min-voltage = <3000000>;
+			qcom,supply-max-voltage = <3000000>;
+			qcom,supply-enable-load = <100000>;
+			qcom,supply-disable-load = <100>;
+			qcom,supply-post-on-sleep = <0>;
+		};
+	};
+};
