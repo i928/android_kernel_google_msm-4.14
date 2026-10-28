@@ -598,6 +598,7 @@ asmlinkage __visible void __init start_kernel(void)
 	sort_main_extable();
 	trap_init();
 	mm_init();
+	{ extern void b1c1_probe_band(int); b1c1_probe_band(0); }
 
 	ftrace_init();
 

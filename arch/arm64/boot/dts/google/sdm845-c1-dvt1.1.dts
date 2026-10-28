@@ -40,6 +40,10 @@
 	};
 };
 
+&cont_splash_memory {
+	no-map;
+};
+
 &mdss_mdp {
 	status = "disabled";
 };
