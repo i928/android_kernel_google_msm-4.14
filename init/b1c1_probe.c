@@ -158,6 +158,8 @@ PROBE(late, 8);
 #define LOG_COLS	(FB_W / (8 * LOG_SCALE))
 
 static char log_ring[LOG_LINES][LOG_COLS + 1];
+/* Sticky status line drawn over the top row (log save result) */
+static char b1c1_status[LOG_COLS + 1] = ">>> SAVE: not run yet";
 static struct kmsg_dumper log_dumper;
 
 static void b1c1_log_draw(bool nolock)
@@ -191,6 +193,8 @@ static void b1c1_log_draw(bool nolock)
 		for (i = first; i < n; i++)
 			fb_draw_str(0, (i - first) * LOG_LINE_H, LOG_SCALE,
 				    log_ring[i % LOG_LINES]);
+		fb_fill_rows(0, LOG_LINE_H, 0xff000000);
+		fb_draw_str(0, 0, LOG_SCALE, b1c1_status);
 		wmb();
 	}
 	raw_spin_unlock_irqrestore(&fb_lock, flags);
@@ -245,6 +249,9 @@ static void b1c1_save_log(char *buf)
 			   O_WRONLY | O_CREAT | O_TRUNC, 0600);
 	path_put(&root);
 	if (IS_ERR(f)) {
+		snprintf(b1c1_status, sizeof(b1c1_status),
+			 ">>> SAVE: open err %ld at %lus", PTR_ERR(f),
+			 (jiffies - INITIAL_JIFFIES) / HZ);
 		if (PTR_ERR(f) != last_err)
 			pr_info("b1c1 save: err %ld\n", PTR_ERR(f));
 		last_err = PTR_ERR(f);
@@ -264,7 +271,9 @@ static void b1c1_save_log(char *buf)
 	}
 	if (used)
 		kernel_write(f, buf, used, &pos);
-	vfs_fsync(f, 0);
+	snprintf(b1c1_status, sizeof(b1c1_status),
+		 ">>> SAVE: wrote %lld bytes, fsync %d at %lus", pos,
+		 vfs_fsync(f, 0), (jiffies - INITIAL_JIFFIES) / HZ);
 	filp_close(f, NULL);
 }
 
