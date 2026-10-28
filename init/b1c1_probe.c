@@ -193,13 +193,13 @@ static void b1c1_log_draw(bool nolock)
 
 static int b1c1_log_thread(void *unused)
 {
-	msleep(15000);
+	msleep(5000);
 	for (;;) {
 		b1c1_log_draw(false);
-		msleep(3000);
+		msleep(500);
 		/* Liveness check: a visible reboot at ~30 s means we are alive */
-		if (time_after(jiffies, INITIAL_JIFFIES + 30 * HZ)) {
-			pr_emerg("b1c1: alive at 30 s, restarting\n");
+		if (time_after(jiffies, INITIAL_JIFFIES + 60 * HZ)) {
+			pr_emerg("b1c1: alive at 60 s, restarting\n");
 			emergency_restart();
 		}
 	}
