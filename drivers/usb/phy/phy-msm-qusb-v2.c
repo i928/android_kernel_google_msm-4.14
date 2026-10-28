@@ -1250,7 +1250,13 @@ static int qusb_phy_probe(struct platform_device *pdev)
 {
 	int ret = __qusb_phy_probe(pdev);
 
+	static int calls;
+	extern char b1c1_status2[];
+
 	pr_info("b1c1 qusb %s probe ret %d\n", dev_name(&pdev->dev), ret);
+	snprintf(b1c1_status2, 64, ">>> QUSB: %s ret %d x%d at %lums",
+		 dev_name(&pdev->dev), ret, ++calls,
+		 jiffies_to_msecs(jiffies - INITIAL_JIFFIES));
 	return ret;
 }
 

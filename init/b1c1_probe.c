@@ -160,6 +160,8 @@ PROBE(late, 8);
 static char log_ring[LOG_LINES][LOG_COLS + 1];
 /* Sticky status line drawn over the top row (log save result) */
 static char b1c1_status[LOG_COLS + 1] = ">>> SAVE: not run yet";
+/* Second sticky line, set by drivers under debug (qusb probe result) */
+char b1c1_status2[LOG_COLS + 1] = ">>> QUSB: probe never called";
 static struct kmsg_dumper log_dumper;
 
 static void b1c1_log_draw(bool nolock)
@@ -193,8 +195,9 @@ static void b1c1_log_draw(bool nolock)
 		for (i = first; i < n; i++)
 			fb_draw_str(0, (i - first) * LOG_LINE_H, LOG_SCALE,
 				    log_ring[i % LOG_LINES]);
-		fb_fill_rows(0, LOG_LINE_H, 0xff000000);
+		fb_fill_rows(0, 2 * LOG_LINE_H, 0xff000000);
 		fb_draw_str(0, 0, LOG_SCALE, b1c1_status);
+		fb_draw_str(0, LOG_LINE_H, LOG_SCALE, b1c1_status2);
 		wmb();
 	}
 	raw_spin_unlock_irqrestore(&fb_lock, flags);
