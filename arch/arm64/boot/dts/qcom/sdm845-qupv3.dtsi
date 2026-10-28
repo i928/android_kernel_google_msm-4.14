@@ -19,7 +19,8 @@
 		reg = <0x8c0000 0x6000>;
 		qcom,bus-mas-id = <MSM_BUS_MASTER_BLSP_1>;
 		qcom,bus-slv-id = <MSM_BUS_SLAVE_EBI_CH0>;
-		qcom,iommu-s1-bypass;
+		/* TEMP b1c1: test without S1 bypass */
+		qcom,iommu-s1-bypass-off-test;
 
 		iommu_qupv3_0_geni_se_cb: qcom,iommu_qupv3_0_geni_se_cb {
 			compatible = "qcom,qupv3-geni-se-cb";
@@ -413,7 +414,8 @@
 		reg = <0xac0000 0x6000>;
 		qcom,bus-mas-id = <MSM_BUS_MASTER_BLSP_2>;
 		qcom,bus-slv-id = <MSM_BUS_SLAVE_EBI_CH0>;
-		qcom,iommu-s1-bypass;
+		/* TEMP b1c1: test without S1 bypass */
+		qcom,iommu-s1-bypass-off-test;
 
 		iommu_qupv3_1_geni_se_cb: qcom,iommu_qupv3_1_geni_se_cb {
 			compatible = "qcom,qupv3-geni-se-cb";
