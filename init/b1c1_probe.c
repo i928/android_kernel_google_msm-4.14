@@ -43,10 +43,34 @@ static void fb_fill_rows(int y, int rows, u32 val)
 			writel_relaxed(val, fb + r * FB_STRIDE + x * 4);
 }
 
+void b1c1_probe_text(int line, const char *fmt, ...);
+
+/*
+ * The bootloader leaves the APSS watchdog running and it bites ~7 s after
+ * kernel entry, before msm_watchdog probes. Stop it so a stuck probe shows
+ * its timeout instead of resetting the board.
+ */
+static void wdog_stop(void)
+{
+	static bool done;
+	void __iomem *wdt;
+
+	if (done)
+		return;
+	done = true;
+	wdt = ioremap(0x17980000, 0x1000);
+	if (!wdt)
+		return;
+	__raw_writel(0, wdt + 0x08);
+	iounmap(wdt);
+	b1c1_probe_text(5, "WDOG off");
+}
+
 void b1c1_probe_band(int band)
 {
 	unsigned long flags;
 
+	wdog_stop();
 	raw_spin_lock_irqsave(&fb_lock, flags);
 	if (fb_map())
 		fb_fill_rows(band * 2 * STRIPE_ROWS, STRIPE_ROWS, 0xffffffff);
