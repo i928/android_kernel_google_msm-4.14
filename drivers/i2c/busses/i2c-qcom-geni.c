@@ -703,6 +703,18 @@ static int geni_i2c_gsi_xfer(struct i2c_adapter *adap, struct i2c_msg msgs[],
 					  readl_relaxed(gi2c->base + SE_IRQ_EN),
 					  readl_relaxed(gi2c->base +
 						SE_DMA_GENERAL_CFG));
+					pr_err("SE hz%lu sel%x mc%x\n",
+					  clk_get_rate(gi2c->i2c_rsc.se_clk),
+					  readl_relaxed(gi2c->base +
+						SE_GENI_CLK_SEL),
+					  readl_relaxed(gi2c->base +
+						GENI_SER_M_CLK_CFG));
+					pr_err("SE ios%x oc%x cgc%x\n",
+					  readl_relaxed(gi2c->base + SE_GENI_IOS),
+					  readl_relaxed(gi2c->base +
+						GENI_OUTPUT_CTRL),
+					  readl_relaxed(gi2c->base +
+						GENI_CGC_CTRL));
 					gpi_b1c1_dump(gi2c->tx_c);
 				}
 			}
