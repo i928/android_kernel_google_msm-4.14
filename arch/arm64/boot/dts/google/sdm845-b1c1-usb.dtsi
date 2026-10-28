@@ -1,5 +1,6 @@
 
 #include <dt-bindings/usb/typec.h>
+#include <dt-bindings/usb/pd.h>
 
 &vendor {
 	extcon_usb1: extcon_usb1 {
@@ -108,4 +109,24 @@
 	goog,try-role-hw;
 
 	goog,wlc-supported;
+
+	/* msm-4.14 pd_engine/tcpm read the port from a usb-c-connector */
+	usb_con: connector {
+		compatible = "usb-c-connector";
+		label = "USB-C";
+		data-role = "dual";
+		power-role = "dual";
+		try-power-role = "sink";
+		self-powered;
+		source-pdos = <PDO_FIXED(5000, 900,
+					PDO_FIXED_SUSPEND
+					| PDO_FIXED_USB_COMM
+					| PDO_FIXED_DATA_SWAP
+					| PDO_FIXED_DUAL_ROLE)>;
+		sink-pdos = <PDO_FIXED(5000, 3000, PDO_FIXED_USB_COMM
+						| PDO_FIXED_DATA_SWAP
+						| PDO_FIXED_DUAL_ROLE)
+				PDO_FIXED(9000, 3000, 0)>;
+		op-sink-microwatt = <7600000>;
+	};
 };
