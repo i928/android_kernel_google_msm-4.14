@@ -28,6 +28,7 @@
 #include <linux/ipc_logging.h>
 #include <linux/dmaengine.h>
 #include <linux/msm_gpi.h>
+void gpi_b1c1_dump(struct dma_chan *chan);
 #include <soc/qcom/boot_stats.h>
 #include <linux/slab.h>
 
@@ -685,6 +686,26 @@ static int geni_i2c_gsi_xfer(struct i2c_adapter *adap, struct i2c_msg msgs[],
 				gi2c->cur->addr);
 			geni_se_dump_dbg_regs(&gi2c->i2c_rsc, gi2c->base,
 						gi2c->ipcl);
+			{
+				/* TEMP b1c1: dump on every timeout so it stays on screen */
+				static int n;
+
+				if (n++ < 1000) {
+					pr_err("SE st%x m%x\n",
+					  readl_relaxed(gi2c->base + SE_GENI_STATUS),
+					  readl_relaxed(gi2c->base +
+						SE_GENI_M_IRQ_STATUS));
+					pr_err("SE fd%x ge%x ie%x dc%x\n",
+					  readl_relaxed(gi2c->base +
+						GENI_IF_FIFO_DISABLE_RO),
+					  readl_relaxed(gi2c->base +
+						SE_GSI_EVENT_EN),
+					  readl_relaxed(gi2c->base + SE_IRQ_EN),
+					  readl_relaxed(gi2c->base +
+						SE_DMA_GENERAL_CFG));
+					gpi_b1c1_dump(gi2c->tx_c);
+				}
+			}
 			gi2c->err = -ETIMEDOUT;
 		}
 geni_i2c_err_prep_sg:

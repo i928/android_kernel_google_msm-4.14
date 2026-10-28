@@ -557,6 +557,7 @@ struct gpii_chan {
 
 struct gpii {
 	u32 gpii_id;
+	u32 b1c1_irqs, b1c1_ieobs; /* TEMP b1c1 */
 	struct gpii_chan gpii_chan[MAX_CHANNELS_PER_GPII];
 	struct gpi_dev *gpi_dev;
 	enum EV_PRIORITY ev_priority;
@@ -1333,6 +1334,48 @@ error_irq:
 }
 
 /* gpii interrupt handler */
+/* TEMP b1c1: short-line state dump for the screen log */
+void gpi_b1c1_dump(struct dma_chan *chan)
+{
+	struct gpii_chan *gpii_chan = to_gpii_chan(chan);
+	struct gpii *gpii = gpii_chan->gpii;
+	void __iomem *top = gpii->gpi_dev->regs;
+	u32 id = gpii->gpii_id;
+	int c;
+
+	pr_err("GPII%u irq%u ieob%u\n", id, gpii->b1c1_irqs,
+	       gpii->b1c1_ieobs);
+	pr_err("T%x C%x E%x\n",
+	       readl_relaxed(gpii->regs + GPI_GPII_n_CNTXT_TYPE_IRQ_OFFS(id)),
+	       readl_relaxed(gpii->regs +
+			     GPI_GPII_n_CNTXT_SRC_GPII_CH_IRQ_OFFS(id)),
+	       readl_relaxed(gpii->regs +
+			     GPI_GPII_n_CNTXT_SRC_EV_CH_IRQ_OFFS(id)));
+	pr_err("IE%x M%x G%x\n",
+	       readl_relaxed(gpii->regs + GPI_GPII_n_CNTXT_SRC_IEOB_IRQ_OFFS(id)),
+	       readl_relaxed(gpii->regs +
+			     GPI_GPII_n_CNTXT_SRC_IEOB_IRQ_MSK_OFFS(id)),
+	       readl_relaxed(gpii->regs +
+			     GPI_GPII_n_CNTXT_GLOB_IRQ_STTS_OFFS(id)));
+	for (c = 0; c < MAX_CHANNELS_PER_GPII; c++) {
+		void __iomem *b = gpii->gpii_chan[c].ch_cntxt_base_reg;
+
+		pr_err("CH%d %x r%x w%x\n", c,
+		       readl_relaxed(b + CNTXT_0_CONFIG),
+		       readl_relaxed(b + CNTXT_4_RING_RP_LSB),
+		       readl_relaxed(b + CNTXT_6_RING_WP_LSB));
+	}
+	pr_err("EV %x r%x w%x\n",
+	       readl_relaxed(gpii->ev_cntxt_base_reg + CNTXT_0_CONFIG),
+	       readl_relaxed(gpii->ev_cntxt_base_reg + CNTXT_4_RING_RP_LSB),
+	       readl_relaxed(gpii->ev_cntxt_base_reg + CNTXT_6_RING_WP_LSB));
+	pr_err("PC%x Q%x\n", readl_relaxed(top + GPI_DEBUG_PC_FOR_DEBUG),
+	       readl_relaxed(top + GPI_DEBUG_QSB_LOG_ERR_TRNS_ID));
+	pr_err("Q0 %x Q1 %x\n", readl_relaxed(top + GPI_DEBUG_QSB_LOG_0),
+	       readl_relaxed(top + GPI_DEBUG_QSB_LOG_1));
+}
+EXPORT_SYMBOL(gpi_b1c1_dump);
+
 static irqreturn_t gpi_handle_irq(int irq, void *data)
 {
 	struct gpii *gpii = data;
@@ -1358,6 +1401,7 @@ static irqreturn_t gpi_handle_irq(int irq, void *data)
 
 	offset = GPI_GPII_n_CNTXT_TYPE_IRQ_OFFS(gpii->gpii_id);
 	type = gpi_read_reg(gpii, gpii->regs + offset);
+	gpii->b1c1_irqs++;
 
 	do {
 		GPII_VERB(gpii, GPI_DBG_COMMON, "CNTXT_TYPE_IRQ:0x%08x\n",
@@ -1374,6 +1418,7 @@ static irqreturn_t gpi_handle_irq(int irq, void *data)
 		if (type & GPI_GPII_n_CNTXT_TYPE_IRQ_MSK_IEOB) {
 			GPII_VERB(gpii, GPI_DBG_COMMON,
 				  "process IEOB interrupts\n");
+			gpii->b1c1_ieobs++;
 			gpi_process_ieob(gpii);
 			type &= ~GPI_GPII_n_CNTXT_TYPE_IRQ_MSK_IEOB;
 		}
