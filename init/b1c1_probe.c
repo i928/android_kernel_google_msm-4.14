@@ -12,6 +12,9 @@
 #include <linux/spinlock.h>
 #include <stdarg.h>
 #include <linux/notifier.h>
+#include <linux/kmsg_dump.h>
+#include <linux/kthread.h>
+#include <linux/delay.h>
 
 #define SPLASH_BASE	0x9d400000UL
 #define FB_W		1440
@@ -26,6 +29,7 @@
 
 static void __iomem *fb;
 static DEFINE_RAW_SPINLOCK(fb_lock);
+static bool log_mode;
 
 static void __iomem *fb_map(void)
 {
@@ -72,43 +76,49 @@ void b1c1_probe_band(int band)
 
 	wdog_stop();
 	raw_spin_lock_irqsave(&fb_lock, flags);
-	if (fb_map())
+	if (!log_mode && fb_map())
 		fb_fill_rows(band * 2 * STRIPE_ROWS, STRIPE_ROWS, 0xffffffff);
 	wmb();
 	raw_spin_unlock_irqrestore(&fb_lock, flags);
 }
 
-void b1c1_probe_text(int line, const char *fmt, ...)
+static void fb_draw_str(int x0, int y, int scale, const char *str)
 {
 	const unsigned char *glyphs = font_vga_8x16.data;
+	int i, gy, gx, sy, sx;
+
+	for (i = 0; str[i] && x0 + (i + 1) * 8 * scale <= FB_W; i++) {
+		const unsigned char *g = glyphs + (unsigned char)str[i] * 16;
+
+		for (gy = 0; gy < 16; gy++)
+			for (gx = 0; gx < 8; gx++) {
+				u32 c = (g[gy] & (0x80 >> gx)) ?
+					0xffffffff : 0xff000000;
+				for (sy = 0; sy < scale; sy++)
+					for (sx = 0; sx < scale; sx++)
+						writel_relaxed(c, fb +
+						  (y + gy * scale + sy) * FB_STRIDE +
+						  (x0 + (i * 8 + gx) * scale + sx) * 4);
+			}
+	}
+}
+
+void b1c1_probe_text(int line, const char *fmt, ...)
+{
 	char buf[TXT_COLS + 1];
 	unsigned long flags;
 	va_list args;
 	int y = TXT_Y0 + line * TXT_LINE_H;
-	int i, gy, gx, sy, sx;
 
 	va_start(args, fmt);
 	vsnprintf(buf, sizeof(buf), fmt, args);
 	va_end(args);
 
 	raw_spin_lock_irqsave(&fb_lock, flags);
-	if (!fb_map())
+	if (log_mode || !fb_map())
 		goto out;
 	fb_fill_rows(y, 16 * TXT_SCALE, 0xff000000);
-	for (i = 0; buf[i]; i++) {
-		const unsigned char *g = glyphs + (unsigned char)buf[i] * 16;
-
-		for (gy = 0; gy < 16; gy++)
-			for (gx = 0; gx < 8; gx++) {
-				u32 c = (g[gy] & (0x80 >> gx)) ?
-					0xffffffff : 0xff000000;
-				for (sy = 0; sy < TXT_SCALE; sy++)
-					for (sx = 0; sx < TXT_SCALE; sx++)
-						writel_relaxed(c, fb +
-						  (y + gy * TXT_SCALE + sy) * FB_STRIDE +
-						  (TXT_X0 + (i * 8 + gx) * TXT_SCALE + sx) * 4);
-			}
-	}
+	fb_draw_str(TXT_X0, y, TXT_SCALE, buf);
 	wmb();
 out:
 	raw_spin_unlock_irqrestore(&fb_lock, flags);
@@ -131,9 +141,74 @@ PROBE(fs, 6);
 PROBE(device, 7);
 PROBE(late, 8);
 
+/*
+ * Screen dmesg: once boot has been going for a while, give the whole
+ * panel to the tail of the kernel log, redrawn every few seconds.
+ */
+#define LOG_SCALE	2
+#define LOG_LINE_H	(16 * LOG_SCALE + 1)
+#define LOG_LINES	(FB_H / LOG_LINE_H)
+#define LOG_COLS	(FB_W / (8 * LOG_SCALE))
+
+static char log_ring[LOG_LINES][LOG_COLS + 1];
+static struct kmsg_dumper log_dumper;
+
+static void b1c1_log_draw(bool nolock)
+{
+	char line[256];
+	unsigned long flags;
+	size_t len;
+	int n = 0, i, first;
+
+	log_dumper.active = true;
+	if (nolock)
+		kmsg_dump_rewind_nolock(&log_dumper);
+	else
+		kmsg_dump_rewind(&log_dumper);
+	while (nolock ?
+	       kmsg_dump_get_line_nolock(&log_dumper, false, line,
+					 sizeof(line) - 1, &len) :
+	       kmsg_dump_get_line(&log_dumper, false, line,
+				  sizeof(line) - 1, &len)) {
+		line[len] = 0;
+		strim(line);
+		strlcpy(log_ring[n % LOG_LINES], line, LOG_COLS + 1);
+		n++;
+	}
+	first = n > LOG_LINES ? n - LOG_LINES : 0;
+
+	raw_spin_lock_irqsave(&fb_lock, flags);
+	log_mode = true;
+	if (fb_map()) {
+		fb_fill_rows(0, FB_H, 0xff000000);
+		for (i = first; i < n; i++)
+			fb_draw_str(0, (i - first) * LOG_LINE_H, LOG_SCALE,
+				    log_ring[i % LOG_LINES]);
+		wmb();
+	}
+	raw_spin_unlock_irqrestore(&fb_lock, flags);
+}
+
+static int b1c1_log_thread(void *unused)
+{
+	msleep(15000);
+	for (;;) {
+		b1c1_log_draw(false);
+		msleep(3000);
+	}
+	return 0;
+}
+
+static int __init b1c1_log_init(void)
+{
+	kthread_run(b1c1_log_thread, NULL, "b1c1_log");
+	return 0;
+}
+early_initcall(b1c1_log_init);
+
 static int b1c1_panic(struct notifier_block *nb, unsigned long ev, void *msg)
 {
-	b1c1_probe_text(5, "PANIC %s", (char *)msg);
+	b1c1_log_draw(true);
 	return NOTIFY_DONE;
 }
 
