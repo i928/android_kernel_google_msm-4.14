@@ -4220,6 +4220,9 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 	if (IS_ERR(mdwc->hs_phy)) {
 		dev_err(&pdev->dev, "unable to get hsphy device\n");
 		ret = PTR_ERR(mdwc->hs_phy);
+		/* TEMP b1c1: slow the deferral loop (log flood, CMA drain) */
+		pr_info("b1c1 hsphy ret %d\n", ret);
+		msleep(500);
 		goto put_dwc3;
 	}
 	mdwc->ss_phy = devm_usb_get_phy_by_phandle(&mdwc->dwc3->dev,

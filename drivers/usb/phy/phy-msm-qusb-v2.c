@@ -955,7 +955,7 @@ create_err:
 	return ret;
 }
 
-static int qusb_phy_probe(struct platform_device *pdev)
+static int __qusb_phy_probe(struct platform_device *pdev)
 {
 	struct qusb_phy *qphy;
 	struct device *dev = &pdev->dev;
@@ -1242,6 +1242,15 @@ static int qusb_phy_probe(struct platform_device *pdev)
 	qphy->suspended = true;
 	qusb_phy_create_debugfs(qphy);
 
+	return ret;
+}
+
+/* TEMP b1c1: report every probe result (hsphy never registers on 4.14) */
+static int qusb_phy_probe(struct platform_device *pdev)
+{
+	int ret = __qusb_phy_probe(pdev);
+
+	pr_info("b1c1 qusb %s probe ret %d\n", dev_name(&pdev->dev), ret);
 	return ret;
 }
 
