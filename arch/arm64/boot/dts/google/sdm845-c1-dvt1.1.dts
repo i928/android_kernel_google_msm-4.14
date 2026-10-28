@@ -47,7 +47,3 @@
 &mdss_mdp {
 	status = "disabled";
 };
-
-&wdog {
-	status = "disabled";
-};
