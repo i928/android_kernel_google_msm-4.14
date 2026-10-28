@@ -851,6 +851,7 @@ int __init_or_module do_one_initcall(initcall_t fn)
 	if (initcall_blacklisted(fn))
 		return -EPERM;
 
+	{ extern void b1c1_probe_text(int, const char *, ...); b1c1_probe_text(0, "IC %ps", fn); }
 	trace_initcall_start(fn);
 	if (initcall_debug)
 		ret = do_one_initcall_debug(fn);

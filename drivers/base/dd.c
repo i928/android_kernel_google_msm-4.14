@@ -384,7 +384,19 @@ EXPORT_SYMBOL_GPL(device_bind_driver);
 static atomic_t probe_count = ATOMIC_INIT(0);
 static DECLARE_WAIT_QUEUE_HEAD(probe_waitqueue);
 
+extern void b1c1_probe_text(int, const char *, ...);
+static int __really_probe(struct device *dev, struct device_driver *drv);
 static int really_probe(struct device *dev, struct device_driver *drv)
+{
+	int ret;
+
+	b1c1_probe_text(1, "PR %s %s", dev_name(dev), drv->name);
+	ret = __really_probe(dev, drv);
+	b1c1_probe_text(2, "OK %s %d", dev_name(dev), ret);
+	return ret;
+}
+
+static int __really_probe(struct device *dev, struct device_driver *drv)
 {
 	int ret = -EPROBE_DEFER;
 	int local_trigger_count = atomic_read(&deferred_trigger_count);
