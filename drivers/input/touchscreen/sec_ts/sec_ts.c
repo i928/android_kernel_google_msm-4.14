@@ -1386,7 +1386,8 @@ static int sec_ts_parse_dt(struct i2c_client *client)
 			return -EINVAL;
 		}
 
-		ret = gpio_direction_output(pdata->switch_gpio, 0);
+		ret = gpio_direction_output(pdata->switch_gpio,
+					    SEC_SWITCH_GPIO_VALUE_AP_MASTER);
 		if (ret) {
 			input_err(true, dev,
 				  "%s: Failed to set gpio %d direction\n",
