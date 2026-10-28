@@ -11,6 +11,7 @@
 #include <linux/font.h>
 #include <linux/spinlock.h>
 #include <stdarg.h>
+#include <linux/notifier.h>
 
 #define SPLASH_BASE	0x9d400000UL
 #define FB_W		1440
@@ -19,7 +20,7 @@
 #define STRIPE_ROWS	120
 #define TXT_SCALE	3
 #define TXT_X0		48
-#define TXT_Y0		2664
+#define TXT_Y0		2580
 #define TXT_LINE_H	(16 * TXT_SCALE + 8)
 #define TXT_COLS	((FB_W - 2 * TXT_X0) / (8 * TXT_SCALE))
 
@@ -105,3 +106,18 @@ PROBE(subsys, 5);
 PROBE(fs, 6);
 PROBE(device, 7);
 PROBE(late, 8);
+
+static int b1c1_panic(struct notifier_block *nb, unsigned long ev, void *msg)
+{
+	b1c1_probe_text(5, "PANIC %s", (char *)msg);
+	return NOTIFY_DONE;
+}
+
+static struct notifier_block b1c1_panic_nb = { .notifier_call = b1c1_panic };
+
+static int __init b1c1_panic_init(void)
+{
+	atomic_notifier_chain_register(&panic_notifier_list, &b1c1_panic_nb);
+	return 0;
+}
+early_initcall(b1c1_panic_init);

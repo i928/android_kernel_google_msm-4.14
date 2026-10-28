@@ -237,6 +237,7 @@ static struct clk_hw *qcom_cc_clk_hw_get(struct of_phandle_args *clkspec,
 	return cc->rclks[idx] ? &cc->rclks[idx]->hw : ERR_PTR(-ENOENT);
 }
 
+extern void b1c1_probe_text(int, const char *, ...);
 int qcom_cc_really_probe(struct platform_device *pdev,
 			 const struct qcom_cc_desc *desc, struct regmap *regmap)
 {
@@ -274,6 +275,7 @@ int qcom_cc_really_probe(struct platform_device *pdev,
 		if (!rclks[i])
 			continue;
 
+		b1c1_probe_text(3, "CLK %d %s", i, rclks[i]->hw.init ? rclks[i]->hw.init->name : "?");
 		ret = devm_clk_register_regmap(dev, rclks[i]);
 		if (ret)
 			return ret;

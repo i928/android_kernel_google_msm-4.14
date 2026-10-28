@@ -4287,6 +4287,7 @@ static int gcc_sdm845_fixup(struct platform_device *pdev)
 	return 0;
 }
 
+extern void b1c1_probe_text(int, const char *, ...);
 static int gcc_sdm845_probe(struct platform_device *pdev)
 {
 	struct regmap *regmap;
@@ -4296,6 +4297,7 @@ static int gcc_sdm845_probe(struct platform_device *pdev)
 	if (IS_ERR(regmap))
 		return PTR_ERR(regmap);
 
+	b1c1_probe_text(3, "GCC regulator_get vdd_cx");
 	vdd_cx.regulator[0] = devm_regulator_get(&pdev->dev, "vdd_cx");
 	if (IS_ERR(vdd_cx.regulator[0])) {
 		if (!(PTR_ERR(vdd_cx.regulator[0]) == -EPROBE_DEFER))
@@ -4312,16 +4314,19 @@ static int gcc_sdm845_probe(struct platform_device *pdev)
 		return PTR_ERR(vdd_cx_ao.regulator[0]);
 	}
 
+	b1c1_probe_text(3, "GCC fixup");
 	ret = gcc_sdm845_fixup(pdev);
 	if (ret)
 		return ret;
 
+	b1c1_probe_text(3, "GCC really_probe");
 	ret = qcom_cc_really_probe(pdev, &gcc_sdm845_desc, regmap);
 	if (ret) {
 		dev_err(&pdev->dev, "Failed to register GCC clocks\n");
 		return ret;
 	}
 
+	b1c1_probe_text(3, "GCC misc");
 	/* Disable the GPLL0 active input to MMSS and GPU via MISC registers */
 	regmap_update_bits(regmap, GCC_MMSS_MISC, 0x3, 0x3);
 	regmap_update_bits(regmap, GCC_GPU_MISC, 0x3, 0x3);
@@ -4330,6 +4335,7 @@ static int gcc_sdm845_probe(struct platform_device *pdev)
 	if (!of_device_is_compatible(pdev->dev.of_node, "qcom,gcc-sdm845-v2.1"))
 		clk_prepare_enable(gcc_aggre_noc_pcie_tbu_clk.clkr.hw.clk);
 
+	b1c1_probe_text(3, "GCC dfs");
 	/* DFS clock registration */
 	ret = qcom_cc_register_rcg_dfs(pdev, &gcc_sdm845_dfs_desc);
 	if (ret)

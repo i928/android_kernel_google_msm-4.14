@@ -184,6 +184,7 @@ static void rpmh_tx_done(struct mbox_client *cl, void *msg, int r)
  * @data: The data for the address in that request
  *
  */
+extern void b1c1_probe_text(int, const char *, ...);
 static inline void wait_for_tx_done(struct rpmh_client *rc,
 		struct completion *compl, u32 addr, u32 data)
 {
@@ -191,6 +192,7 @@ static inline void wait_for_tx_done(struct rpmh_client *rc,
 	int count = 4;
 	int skip = 0;
 
+	b1c1_probe_text(4, "RPMH wait %x=%x", addr, data);
 	do {
 		ret = wait_for_completion_timeout(compl, RPMH_TIMEOUT);
 		if (ret) {
@@ -208,6 +210,7 @@ static inline void wait_for_tx_done(struct rpmh_client *rc,
 			mbox_chan_debug(rc->chan);
 			BUG();
 		} else {
+			b1c1_probe_text(4, "RPMH TIMEOUT %d %x=%x", count, addr, data);
 			dev_err(rc->dev,
 			"RPMH response timeout (%d) addr=0x%x,data=0x%x\n",
 			count, addr, data);

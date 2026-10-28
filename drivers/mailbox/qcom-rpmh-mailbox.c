@@ -247,13 +247,18 @@ static inline void write_tcs_reg(void __iomem *base, int reg, int m, int n,
 			RSC_DRV_TCS_OFFSET * m + RSC_DRV_CMD_OFFSET * n);
 }
 
+extern void b1c1_probe_text(int, const char *, ...);
 static inline void write_tcs_reg_sync(void __iomem *base, int reg, int m, int n,
 				u32 data)
 {
+	int tries = 0;
+
 	do {
 		write_tcs_reg(base, reg, m, n, data);
 		if (data == read_tcs_reg(base, reg, m, n))
 			break;
+		if (++tries == 100000)
+			b1c1_probe_text(4, "TCS STUCK reg %x m%d n%d %x", reg, m, n, data);
 		udelay(1);
 	} while (1);
 }
