@@ -53,11 +53,6 @@
 	status = "disabled";
 };
 
-/* TEMP: sec_ts probe spins on GSI I2C timeouts and stalls deferred probe */
-&qupv3_se2_i2c {
-	status = "disabled";
-};
-
 /* TEMP: keep the bootloader's AMOLED AVDD/ELVDD rails untouched (splash) */
 &pmi8998_wled {
 	status = "disabled";
