@@ -19,6 +19,9 @@
 #include <linux/jiffies.h>
 #include <linux/fs.h>
 #include <linux/slab.h>
+#include <linux/sched/task.h>
+#include <linux/fs_struct.h>
+#include <linux/path.h>
 
 #define SPLASH_BASE	0x9d400000UL
 #define FB_W		1440
@@ -223,9 +226,32 @@ static void b1c1_save_log(char *buf)
 	loff_t pos = 0;
 	size_t len, used = 0;
 
-	f = filp_open(SAVE_PATH, O_WRONLY | O_CREAT | O_TRUNC, 0600);
-	if (IS_ERR(f))
+	struct task_struct *init;
+	struct path root;
+	static long last_err = 1;
+
+	/* Resolve against init's root: kthreads may still see the ramdisk */
+	rcu_read_lock();
+	init = find_task_by_vpid(1);
+	if (init)
+		get_task_struct(init);
+	rcu_read_unlock();
+	if (!init)
 		return;
+	get_fs_root(init->fs, &root);
+	put_task_struct(init);
+	f = file_open_root(root.dentry, root.mnt, SAVE_PATH + 1,
+			   O_WRONLY | O_CREAT | O_TRUNC, 0600);
+	path_put(&root);
+	if (IS_ERR(f)) {
+		if (PTR_ERR(f) != last_err)
+			pr_info("b1c1 save: err %ld\n", PTR_ERR(f));
+		last_err = PTR_ERR(f);
+		return;
+	}
+	if (last_err)
+		pr_info("b1c1 save: ok\n");
+	last_err = 0;
 	kmsg_dump_rewind(&save_dumper);
 	while (kmsg_dump_get_line(&save_dumper, false, buf + used,
 				  SAVE_BUF - used, &len)) {
