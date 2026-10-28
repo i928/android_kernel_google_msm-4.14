@@ -16,6 +16,7 @@
 #include <linux/kthread.h>
 #include <linux/delay.h>
 #include <linux/reboot.h>
+#include <linux/jiffies.h>
 
 #define SPLASH_BASE	0x9d400000UL
 #define FB_W		1440
@@ -196,6 +197,11 @@ static int b1c1_log_thread(void *unused)
 	for (;;) {
 		b1c1_log_draw(false);
 		msleep(3000);
+		/* Liveness check: a visible reboot at ~30 s means we are alive */
+		if (time_after(jiffies, INITIAL_JIFFIES + 30 * HZ)) {
+			pr_emerg("b1c1: alive at 30 s, restarting\n");
+			emergency_restart();
+		}
 	}
 	return 0;
 }
