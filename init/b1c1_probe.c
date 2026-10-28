@@ -7,14 +7,15 @@
 #include <linux/io.h>
 #include <linux/kernel.h>
 #include <linux/mm.h>
+#include <linux/delay.h>
 #include <asm/cacheflush.h>
 
 #define SPLASH_BASE	0x9d400000UL
-#define BAND_BYTES	(1440UL * 3 * 280)	/* fits both 24 and 32 bpp */
+#define BAND_BYTES	(1440UL * 4 * 120)	/* stripe; equal black gap follows */
 
 void b1c1_probe_band(int band)
 {
-	phys_addr_t pa = SPLASH_BASE + band * BAND_BYTES;
+	phys_addr_t pa = SPLASH_BASE + band * 2 * BAND_BYTES;
 	void __iomem *p;
 
 	if (pfn_valid(__phys_to_pfn(pa))) {
@@ -22,6 +23,7 @@ void b1c1_probe_band(int band)
 
 		memset(v, 0xff, BAND_BYTES);
 		__flush_dcache_area(v, BAND_BYTES);
+		mdelay(1000);
 		return;
 	}
 	p = ioremap_wc(pa, BAND_BYTES);
@@ -30,6 +32,7 @@ void b1c1_probe_band(int band)
 	memset_io(p, 0xff, BAND_BYTES);
 	wmb();
 	iounmap(p);
+	mdelay(1000);
 }
 
 #define PROBE(level, n)						\
