@@ -5020,8 +5020,10 @@ static int __init regulator_init_complete(void)
 	 * not in use or always_on.  This is effectively the default
 	 * for DT and ACPI as they have full constraints.
 	 */
-	class_for_each_device(&regulator_class, NULL, NULL,
-			      regulator_late_cleanup);
+	/* TEMP b1c1: keep the panel supplies the bootloader left on */
+	if (!IS_ENABLED(CONFIG_BOARD_B1C1))
+		class_for_each_device(&regulator_class, NULL, NULL,
+				      regulator_late_cleanup);
 
 	return 0;
 }
