@@ -17,6 +17,8 @@
 #include <linux/delay.h>
 #include <linux/reboot.h>
 #include <linux/jiffies.h>
+#include <linux/fs.h>
+#include <linux/slab.h>
 
 #define SPLASH_BASE	0x9d400000UL
 #define FB_W		1440
@@ -197,9 +199,9 @@ static int b1c1_log_thread(void *unused)
 	for (;;) {
 		b1c1_log_draw(false);
 		msleep(250);
-		/* Warm reboot to fastboot so pstore keeps this boot's log */
-		if (time_after(jiffies, INITIAL_JIFFIES + 90 * HZ)) {
-			pr_emerg("b1c1: 90 s, rebooting to bootloader\n");
+		/* Warm reboot to fastboot (log is saved in /metadata) */
+		if (time_after(jiffies, INITIAL_JIFFIES + 120 * HZ)) {
+			pr_emerg("b1c1: 120 s, rebooting to bootloader\n");
 			/* skip device_shutdown(): a driver hangs there */
 			machine_restart("bootloader");
 		}
@@ -207,9 +209,57 @@ static int b1c1_log_thread(void *unused)
 	return 0;
 }
 
+/*
+ * Pixel 3 pstore is encrypted with a key only 4.9 userspace loads, so save
+ * the whole log to the unencrypted /metadata partition every 5 s instead.
+ */
+#define SAVE_PATH	"/metadata/b1c1-kmsg.txt"
+#define SAVE_BUF	(64 * 1024)
+static struct kmsg_dumper save_dumper;
+
+static void b1c1_save_log(char *buf)
+{
+	struct file *f;
+	loff_t pos = 0;
+	size_t len, used = 0;
+
+	f = filp_open(SAVE_PATH, O_WRONLY | O_CREAT | O_TRUNC, 0600);
+	if (IS_ERR(f))
+		return;
+	kmsg_dump_rewind(&save_dumper);
+	while (kmsg_dump_get_line(&save_dumper, false, buf + used,
+				  SAVE_BUF - used, &len)) {
+		used += len;
+		if (SAVE_BUF - used < 1024) {
+			kernel_write(f, buf, used, &pos);
+			used = 0;
+		}
+	}
+	if (used)
+		kernel_write(f, buf, used, &pos);
+	vfs_fsync(f, 0);
+	filp_close(f, NULL);
+}
+
+static int b1c1_save_thread(void *unused)
+{
+	char *buf = kmalloc(SAVE_BUF, GFP_KERNEL);
+
+	if (!buf)
+		return -ENOMEM;
+	save_dumper.active = true;
+	msleep(8000);
+	for (;;) {
+		b1c1_save_log(buf);
+		msleep(5000);
+	}
+	return 0;
+}
+
 static int __init b1c1_log_init(void)
 {
 	kthread_run(b1c1_log_thread, NULL, "b1c1_log");
+	kthread_run(b1c1_save_thread, NULL, "b1c1_save");
 	return 0;
 }
 early_initcall(b1c1_log_init);
