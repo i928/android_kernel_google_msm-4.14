@@ -285,11 +285,11 @@ static void b1c1_save_log(char *buf)
 static int b1c1_save_thread(void *unused)
 {
 	char *buf = kmalloc(SAVE_BUF, GFP_KERNEL);
+	int n = 0;
 
 	if (!buf)
 		return -ENOMEM;
 	save_dumper.active = true;
-	int n = 0;
 
 	msleep(8000);
 	for (;;) {
