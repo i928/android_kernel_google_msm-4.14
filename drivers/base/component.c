@@ -392,6 +392,12 @@ static int component_bind(struct component *component, struct master *master,
 {
 	int ret;
 
+	{
+		extern void b1c1_checkpoint(const char *tag);
+
+		b1c1_checkpoint(dev_name(component->dev));
+	}
+
 	/*
 	 * Each component initialises inside its own devres group.
 	 * This allows us to roll-back a failed component without

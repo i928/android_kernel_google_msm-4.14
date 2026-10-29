@@ -282,6 +282,17 @@ static void b1c1_save_log(char *buf)
 	filp_close(f, NULL);
 }
 
+static char *b1c1_save_buf;
+
+/* TEMP: log a step and save the log right away (save thread only) */
+void b1c1_checkpoint(const char *tag)
+{
+	pr_info("b1c1 CP %s\n", tag);
+	if (b1c1_save_buf && !strcmp(current->comm, "b1c1_save"))
+		b1c1_save_log(b1c1_save_buf);
+}
+EXPORT_SYMBOL(b1c1_checkpoint);
+
 static int b1c1_save_thread(void *unused)
 {
 	char *buf = kmalloc(SAVE_BUF, GFP_KERNEL);
@@ -290,6 +301,7 @@ static int b1c1_save_thread(void *unused)
 	if (!buf)
 		return -ENOMEM;
 	save_dumper.active = true;
+	b1c1_save_buf = buf;
 
 	msleep(8000);
 	for (;;) {

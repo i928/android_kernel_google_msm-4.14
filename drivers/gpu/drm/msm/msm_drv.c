@@ -651,6 +651,9 @@ static void msm_idle_init(struct drm_device *ddev)
 	spin_lock_init(&idle->lock);
 }
 
+extern void b1c1_checkpoint(const char *tag);
+#define B1C1_CP(x) b1c1_checkpoint(x)
+
 static int msm_drm_init(struct device *dev, struct drm_driver *drv)
 {
 	struct platform_device *pdev = to_platform_device(dev);
@@ -679,6 +682,7 @@ static int msm_drm_init(struct device *dev, struct drm_driver *drv)
 	ddev->dev_private = priv;
 	priv->dev = ddev;
 
+	B1C1_CP("mdss_init");
 	ret = msm_mdss_init(ddev);
 	if (ret)
 		goto mdss_init_fail;
@@ -689,6 +693,7 @@ static int msm_drm_init(struct device *dev, struct drm_driver *drv)
 	INIT_LIST_HEAD(&priv->client_event_list);
 	INIT_LIST_HEAD(&priv->inactive_list);
 
+	B1C1_CP("power_init");
 	ret = sde_power_resource_init(pdev, &priv->phandle);
 	if (ret) {
 		pr_err("sde power resource init failed\n");
@@ -705,6 +710,7 @@ static int msm_drm_init(struct device *dev, struct drm_driver *drv)
 	dbg_power_ctrl.handle = &priv->phandle;
 	dbg_power_ctrl.client = priv->pclient;
 	dbg_power_ctrl.enable_fn = msm_power_enable_wrapper;
+	B1C1_CP("dbg_init");
 	ret = sde_dbg_init(&pdev->dev, &dbg_power_ctrl);
 	if (ret) {
 		dev_err(dev, "failed to init sde dbg: %d\n", ret);
@@ -714,10 +720,12 @@ static int msm_drm_init(struct device *dev, struct drm_driver *drv)
 	msm_idle_init(ddev);
 
 	/* Bind all our sub-components: */
+	B1C1_CP("bind_all");
 	ret = msm_component_bind_all(dev, ddev);
 	if (ret)
 		goto bind_fail;
 
+	B1C1_CP("vram");
 	ret = msm_init_vram(ddev);
 	if (ret)
 		goto fail;
@@ -738,6 +746,7 @@ static int msm_drm_init(struct device *dev, struct drm_driver *drv)
 		kms = mdp5_kms_init(ddev);
 		break;
 	case KMS_SDE:
+		B1C1_CP("sde_kms_init");
 		kms = sde_kms_init(ddev);
 		break;
 	default:
@@ -770,6 +779,7 @@ static int msm_drm_init(struct device *dev, struct drm_driver *drv)
 	ddev->mode_config.funcs = &mode_config_funcs;
 
 	if (kms) {
+		B1C1_CP("hw_init");
 		ret = kms->funcs->hw_init(kms);
 		if (ret) {
 			dev_err(dev, "kms hw init failed: %d\n", ret);
@@ -871,6 +881,7 @@ static int msm_drm_init(struct device *dev, struct drm_driver *drv)
 		goto fail;
 	}
 
+	B1C1_CP("vblank");
 	ret = drm_vblank_init(ddev, priv->num_crtcs);
 	if (ret < 0) {
 		dev_err(dev, "failed to initialize vblank\n");
@@ -887,6 +898,7 @@ static int msm_drm_init(struct device *dev, struct drm_driver *drv)
 		}
 	}
 
+	B1C1_CP("dev_register");
 	ret = drm_dev_register(ddev, 0);
 	if (ret)
 		goto fail;
@@ -895,6 +907,7 @@ static int msm_drm_init(struct device *dev, struct drm_driver *drv)
 	drm_mode_config_reset(ddev);
 
 	if (kms && kms->funcs && kms->funcs->cont_splash_config) {
+		B1C1_CP("cont_splash");
 		ret = kms->funcs->cont_splash_config(kms);
 		if (ret) {
 			dev_err(dev, "kms cont_splash config failed.\n");
@@ -2250,7 +2263,7 @@ static int msm_pdev_probe(struct platform_device *pdev)
 	int ret;
 	struct component_match *match = NULL;
 
-	pr_info("b1c1 msm_drm probe enter\n");
+	B1C1_CP("probe");
 	ret = add_display_components(&pdev->dev, &match);
 	if (ret)
 		goto fail;
@@ -2268,6 +2281,7 @@ static int msm_pdev_probe(struct platform_device *pdev)
 
 	pdev->dev.coherent_dma_mask = DMA_BIT_MASK(32);
 
+	B1C1_CP("master_add");
 	ret = component_master_add_with_match(&pdev->dev, &msm_drm_ops, match);
 	if (ret)
 		goto fail;
