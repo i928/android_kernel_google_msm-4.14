@@ -293,7 +293,15 @@ static int b1c1_save_thread(void *unused)
 
 	msleep(8000);
 	for (;;) {
-		if (++n == 5) {
+		if (++n == 2) {
+			extern void b1c1_msm_drm_late(void);
+
+			pr_info("b1c1 display probe start\n");
+			b1c1_msm_drm_late();
+			pr_info("b1c1 display probe done\n");
+			b1c1_save_log(buf);
+		}
+		if (n == 5) {
 			extern void b1c1_dump_deferred(void);
 
 			b1c1_dump_deferred();

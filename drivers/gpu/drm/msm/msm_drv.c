@@ -2330,7 +2330,6 @@ static struct platform_driver msm_platform_driver = {
 		.of_match_table = dt_match,
 		.pm     = &msm_pm_ops,
 		.suppress_bind_attrs = true,
-		.probe_type = PROBE_PREFER_ASYNCHRONOUS,
 	},
 };
 
@@ -2344,6 +2343,14 @@ void __exit adreno_unregister(void)
 }
 #endif
 
+/* TEMP b1c1: probe the display after the first log save */
+void b1c1_msm_drm_late(void)
+{
+	int ret = platform_driver_register(&msm_platform_driver);
+
+	pr_info("b1c1 msm_drm register %d\n", ret);
+}
+
 static int __init msm_drm_register(void)
 {
 	if (!modeset)
@@ -2355,12 +2362,8 @@ static int __init msm_drm_register(void)
 	msm_edp_register();
 	msm_hdmi_register();
 	adreno_register();
-	{
-		int ret = platform_driver_register(&msm_platform_driver);
-
-		pr_info("b1c1 msm_drm register %d\n", ret);
-		return ret;
-	}
+	/* TEMP b1c1: registered later from the log thread */
+	return 0;
 }
 
 static void __exit msm_drm_unregister(void)
