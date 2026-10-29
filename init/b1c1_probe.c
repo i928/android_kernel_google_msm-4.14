@@ -212,7 +212,11 @@ static int b1c1_log_thread(void *unused)
 		msleep(250);
 		/* Warm reboot to fastboot (log is saved in /metadata) */
 		if (time_after(jiffies, INITIAL_JIFFIES + 120 * HZ)) {
-			pr_emerg("b1c1: 120 s, rebooting to bootloader\n");
+			pr_emerg("b1c1: 120 s, syncing\n");
+			/* flush /data (persistent logcat) before the hard reset */
+			emergency_sync();
+			msleep(5000);
+			pr_emerg("b1c1: rebooting to bootloader\n");
 			/* skip device_shutdown(): a driver hangs there */
 			machine_restart("bootloader");
 		}
