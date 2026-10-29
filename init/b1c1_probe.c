@@ -4,6 +4,9 @@
  * progress is visible without UART/pstore. Stripes mark boot stages;
  * text lines at the bottom show the current initcall and driver probe.
  */
+#include <linux/kernel_stat.h>
+#include <linux/irqdesc.h>
+#include <linux/irq.h>
 #include <linux/init.h>
 #include <linux/io.h>
 #include <linux/kernel.h>
@@ -282,6 +285,31 @@ static void b1c1_save_log(char *buf)
 }
 
 static char *b1c1_save_buf;
+int b1c1_sde_irq = -1;
+
+/* TEMP: state of the MDSS irq line, no register access */
+static void b1c1_dump_sde_irq(void)
+{
+	struct irq_desc *desc;
+	struct irq_data *d;
+
+	if (b1c1_sde_irq < 0) {
+		pr_info("b1c1 sde irq: not set up\n");
+		return;
+	}
+	desc = irq_to_desc(b1c1_sde_irq);
+	if (!desc)
+		return;
+	d = irq_desc_get_irq_data(desc);
+	pr_info("b1c1 sde irq %d: hwirq %lu depth %u count %u unhandled %u action %s type 0x%x disabled %d masked %d\n",
+		b1c1_sde_irq, d->hwirq, desc->depth, kstat_irqs(b1c1_sde_irq),
+		desc->irqs_unhandled, desc->action ? desc->action->name : "-",
+		irqd_get_trigger_type(d), irqd_irq_disabled(d),
+		irqd_irq_masked(d));
+	for (d = d->parent_data; d; d = d->parent_data)
+		pr_info("b1c1   parent %s hwirq %lu\n",
+			d->chip ? d->chip->name : "-", d->hwirq);
+}
 static DEFINE_MUTEX(b1c1_save_lock);
 
 static void b1c1_save_locked(void)
@@ -325,6 +353,8 @@ static int b1c1_save_thread(void *unused)
 	for (;;) {
 		if (++n == 2)
 			kthread_run(b1c1_drm_thread, NULL, "b1c1_drm");
+		if (n == 4 || n == 10)
+			b1c1_dump_sde_irq();
 		if (n == 5) {
 			extern void b1c1_dump_deferred(void);
 

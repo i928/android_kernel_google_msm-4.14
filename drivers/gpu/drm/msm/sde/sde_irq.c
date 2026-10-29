@@ -143,6 +143,12 @@ void sde_irq_preinstall(struct msm_kms *kms)
 		return;
 	}
 
+	{
+		extern int b1c1_sde_irq;
+
+		b1c1_sde_irq = sde_kms->irq_num;
+	}
+
 	/* disable irq until power event enables it */
 	if (!sde_kms->splash_data.num_splash_displays && !sde_kms->irq_enabled)
 		irq_set_status_flags(sde_kms->irq_num, IRQ_NOAUTOEN);
