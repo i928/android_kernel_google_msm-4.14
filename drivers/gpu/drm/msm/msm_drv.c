@@ -653,6 +653,7 @@ static void msm_idle_init(struct drm_device *ddev)
 
 extern void b1c1_checkpoint(const char *tag);
 #define B1C1_CP(x) b1c1_checkpoint(x)
+static void msm_irq_preinstall(struct drm_device *dev);
 
 static int msm_drm_init(struct device *dev, struct drm_driver *drv)
 {
