@@ -17,6 +17,7 @@
 #include <linux/kthread.h>
 
 #include "sde_irq.h"
+#include <linux/pm_runtime.h>
 #include "sde_core_irq.h"
 
 uint32_t g_sde_irq_status;
@@ -42,6 +43,21 @@ irqreturn_t sde_irq(struct msm_kms *kms)
 {
 	struct sde_kms *sde_kms = to_sde_kms(kms);
 	u32 interrupts;
+
+	/* TEMP b1c1: see the irq before any register read */
+	{
+		static unsigned int b1c1_entry;
+		struct device *d = sde_kms->dev->dev;
+
+		if (b1c1_entry++ < 8)
+			pr_info("b1c1 sde irq entry #%u rpm %d usage %d\n",
+				b1c1_entry, d->power.runtime_status,
+				atomic_read(&d->power.usage_count));
+		if (!pm_runtime_active(d)) {
+			pr_err_ratelimited("b1c1 sde irq while suspended\n");
+			return IRQ_NONE;
+		}
+	}
 
 	sde_kms->hw_intr->ops.get_interrupt_sources(sde_kms->hw_intr,
 			&interrupts);
