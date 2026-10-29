@@ -207,7 +207,7 @@ static int b1c1_log_thread(void *unused)
 {
 	msleep(1000);
 	for (;;) {
-		b1c1_log_draw(false);
+		/* MDSS owns the splash buffer again; no screen log */
 		msleep(250);
 		/* Warm reboot to fastboot (log is saved in /metadata) */
 		if (time_after(jiffies, INITIAL_JIFFIES + 120 * HZ)) {
@@ -322,7 +322,6 @@ early_initcall(b1c1_log_init);
 
 static int b1c1_panic(struct notifier_block *nb, unsigned long ev, void *msg)
 {
-	b1c1_log_draw(true);
 	return NOTIFY_DONE;
 }
 
@@ -333,8 +332,6 @@ static int b1c1_reboot(struct notifier_block *nb, unsigned long ev, void *cmd)
 {
 	pr_emerg("b1c1: %s %s\n", ev == SYS_POWER_OFF ? "POWER OFF" :
 		 ev == SYS_HALT ? "HALT" : "REBOOT", cmd ? (char *)cmd : "");
-	b1c1_log_draw(false);
-	mdelay(5000);
 	return NOTIFY_DONE;
 }
 
