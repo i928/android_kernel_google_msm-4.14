@@ -164,7 +164,7 @@ static char b1c1_status[LOG_COLS + 1] = ">>> SAVE: not run yet";
 char b1c1_status2[LOG_COLS + 1] = ">>> QUSB: probe never called";
 static struct kmsg_dumper log_dumper;
 
-static void b1c1_log_draw(bool nolock)
+static void __maybe_unused b1c1_log_draw(bool nolock)
 {
 	char line[256];
 	unsigned long flags;
