@@ -11,6 +11,15 @@ menuconfig ION
 	  If you're not using Android its probably safe to
 	  say N here.
 
+config ION_LEGACY_ABI
+	bool "Legacy (handle based) ION userspace ABI"
+	depends on ION
+	help
+	  Accept the pre-4.12 ION ioctls (ALLOC returning a handle, FREE,
+	  MAP, SHARE, IMPORT, SYNC, CUSTOM and the msm cache maintenance
+	  requests) next to the dma-buf fd based ABI, for vendor blobs
+	  built against msm-4.9, e.g. on Pixel 3 (B1C1).
+
 config ION_SYSTEM_HEAP
 	bool "Ion system heap"
 	depends on ION

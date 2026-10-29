@@ -496,6 +496,23 @@ int ion_walk_heaps(int heap_id, enum ion_heap_type type, void *data,
 
 long ion_ioctl(struct file *filp, unsigned int cmd, unsigned long arg);
 
+struct dma_buf *ion_alloc_dmabuf(size_t len, unsigned int heap_id_mask,
+				 unsigned int flags);
+
+#ifdef CONFIG_ION_LEGACY_ABI
+int ion_legacy_open(struct inode *inode, struct file *filp);
+int ion_legacy_release(struct inode *inode, struct file *filp);
+bool ion_legacy_cmd(unsigned int cmd);
+long ion_legacy_ioctl(struct file *filp, unsigned int cmd, unsigned long arg);
+#else
+static inline bool ion_legacy_cmd(unsigned int cmd) { return false; }
+static inline long ion_legacy_ioctl(struct file *filp, unsigned int cmd,
+				    unsigned long arg)
+{
+	return -ENOTTY;
+}
+#endif
+
 int ion_query_heaps(struct ion_heap_query *query);
 
 #endif /* _ION_H */
