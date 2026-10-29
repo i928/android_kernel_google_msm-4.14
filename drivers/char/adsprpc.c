@@ -701,7 +701,7 @@ static int dma_alloc_memory(dma_addr_t *region_phys, void **vaddr, size_t size,
 	*vaddr = dma_alloc_attrs(me->dev, size, region_phys,
 					GFP_KERNEL, dma_attr);
 	if (IS_ERR_OR_NULL(*vaddr)) {
-		pr_err("adsprpc: %s: %s: dma_alloc_attrs failed for size 0x%zx, returned %ld\n",
+		pr_err_ratelimited("adsprpc: %s: %s: dma_alloc_attrs failed for size 0x%zx, returned %ld\n",
 				current->comm, __func__, size, PTR_ERR(*vaddr));
 		return -ENOMEM;
 	}
@@ -1111,7 +1111,7 @@ static int fastrpc_buf_alloc(struct fastrpc_file *fl, size_t size,
 	}
 	if (err) {
 		err = -ENOMEM;
-		pr_err("adsprpc: %s: %s: dma_alloc_attrs failed for size 0x%zx, returned %ld\n",
+		pr_err_ratelimited("adsprpc: %s: %s: dma_alloc_attrs failed for size 0x%zx, returned %ld\n",
 			current->comm, __func__, size, PTR_ERR(buf->virt));
 		goto bail;
 	}
