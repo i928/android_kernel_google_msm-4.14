@@ -59,8 +59,15 @@ long ion_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 	unsigned int dir;
 	union ion_ioctl_arg data;
 
-	if (ion_legacy_cmd(cmd))
-		return ion_legacy_ioctl(filp, cmd, arg);
+	if (ion_legacy_cmd(cmd)) {
+		/* TEMP b1c1: show which legacy calls fail */
+		long lret = ion_legacy_ioctl(filp, cmd, arg);
+
+		pr_info_ratelimited("b1c1 ion legacy %s[%d] cmd %x ret %ld\n",
+				    current->comm, task_pid_nr(current),
+				    cmd, lret);
+		return lret;
+	}
 
 	dir = ion_ioctl_dir(cmd);
 
