@@ -209,14 +209,39 @@ static void __maybe_unused b1c1_log_draw(bool nolock)
  * TEMP: /data runs with checkpoint=disable and is rolled back because the
  * boot never completes, so dump logcat to /metadata instead.
  */
+static int b1c1_umh_init(struct subprocess_info *info, struct cred *new)
+{
+	struct task_struct *init;
+	struct path root;
+
+	/* the helper inherits kthreadd's ramdisk root; use init's instead */
+	rcu_read_lock();
+	init = find_task_by_vpid(1);
+	if (init)
+		get_task_struct(init);
+	rcu_read_unlock();
+	if (!init)
+		return -ESRCH;
+	get_fs_root(init->fs, &root);
+	put_task_struct(init);
+	set_fs_root(current->fs, &root);
+	set_fs_pwd(current->fs, &root);
+	path_put(&root);
+	return 0;
+}
+
 static void b1c1_dump_logcat(const char *path)
 {
 	char *argv[] = { "/system/bin/logcat", "-b", "all", "-d", "-v",
 			 "threadtime", "-f", (char *)path, NULL };
-	char *envp[] = { "PATH=/system/bin:/system/xbin", NULL };
-	int ret;
+	static char *envp[] = { "PATH=/system/bin:/system/xbin", NULL };
+	struct subprocess_info *info;
+	int ret = -ENOMEM;
 
-	ret = call_usermodehelper(argv[0], argv, envp, UMH_WAIT_PROC);
+	info = call_usermodehelper_setup(argv[0], argv, envp, GFP_KERNEL,
+					 b1c1_umh_init, NULL, NULL);
+	if (info)
+		ret = call_usermodehelper_exec(info, UMH_WAIT_PROC);
 	pr_info("b1c1 logcat -> %s ret %d\n", path, ret);
 }
 
