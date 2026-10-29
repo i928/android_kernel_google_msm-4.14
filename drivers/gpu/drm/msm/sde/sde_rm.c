@@ -1280,6 +1280,11 @@ static int _sde_rm_make_next_rsvp(
  * @splash_display: Pointer to struct sde_splash_display
  * return: number of active LM blocks for this CTL block
  */
+extern void b1c1_checkpoint(const char *tag);
+static char b1c1_cp_buf[48];
+#define B1C1_CPF(...) do { snprintf(b1c1_cp_buf, sizeof(b1c1_cp_buf), __VA_ARGS__); \
+	b1c1_checkpoint(b1c1_cp_buf); } while (0)
+
 static int _sde_rm_get_hw_blk_for_cont_splash(struct sde_rm *rm,
 		struct sde_hw_ctl *ctl,
 		struct sde_splash_display *splash_display)
@@ -1301,6 +1306,7 @@ static int _sde_rm_get_hw_blk_for_cont_splash(struct sde_rm *rm,
 		if (splash_display->lm_cnt >= MAX_DATA_PATH_PER_DSIPLAY)
 			break;
 
+		B1C1_CPF("splash lm %d", iter_lm.blk->id);
 		lm_reg = ctl->ops.read_ctl_layers(ctl, iter_lm.blk->id);
 		if (!lm_reg)
 			continue;
@@ -1322,6 +1328,7 @@ static int _sde_rm_get_hw_blk_for_cont_splash(struct sde_rm *rm,
 		}
 
 		pp = to_sde_hw_pingpong(iter_pp.blk->hw);
+		B1C1_CPF("splash pp lm %d", iter_lm.blk->id);
 		if (pp && pp->ops.get_dsc_status &&
 				pp->ops.get_dsc_status(pp)) {
 			splash_display->dsc_ids[splash_display->dsc_cnt++] =
@@ -1365,6 +1372,7 @@ int sde_rm_cont_splash_res_init(struct msm_drm_private *priv,
 	}
 	sde_kms = to_sde_kms(priv->kms);
 
+	B1C1_CPF("splash start");
 	hw_mdp = sde_rm_get_mdp(rm);
 
 	sde_rm_init_hw_iter(&iter_c, 0, SDE_HW_BLK_CTL);
@@ -1376,6 +1384,7 @@ int sde_rm_cont_splash_res_init(struct msm_drm_private *priv,
 			return -EINVAL;
 		}
 
+		B1C1_CPF("splash ctl %d", iter_c.blk->id);
 		intf_sel = ctl->ops.get_ctl_intf(ctl);
 		if (intf_sel) {
 			splash_display =  &splash_data->splash_display[index];

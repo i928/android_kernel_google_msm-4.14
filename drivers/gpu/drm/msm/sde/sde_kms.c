@@ -3826,6 +3826,7 @@ static int sde_kms_hw_init(struct msm_kms *kms)
 
 	b1c1_checkpoint("kms hw_intr");
 	sde_kms->hw_intr = sde_hw_intr_init(sde_kms->mmio, sde_kms->catalog);
+	b1c1_checkpoint("kms hw_intr done");
 	if (IS_ERR_OR_NULL(sde_kms->hw_intr)) {
 		rc = PTR_ERR(sde_kms->hw_intr);
 		SDE_ERROR("hw_intr init failed: %d\n", rc);
