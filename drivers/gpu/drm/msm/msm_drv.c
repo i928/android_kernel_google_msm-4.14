@@ -888,7 +888,7 @@ static int msm_drm_init(struct device *dev, struct drm_driver *drv)
 		goto fail;
 	}
 
-	if (kms && 0) { /* TEMP b1c1: does the MDSS irq hang the board? */
+	if (kms) {
 		pm_runtime_get_sync(dev);
 		ret = drm_irq_install(ddev, platform_get_irq(pdev, 0));
 		pm_runtime_put_sync(dev);

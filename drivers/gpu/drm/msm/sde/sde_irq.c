@@ -49,6 +49,26 @@ irqreturn_t sde_irq(struct msm_kms *kms)
 	/* store irq status in case of irq-storm debugging */
 	g_sde_irq_status = interrupts;
 
+	/* TEMP b1c1: catch an irq storm before it locks the board */
+	{
+		static unsigned long b1c1_t0;
+		static unsigned int b1c1_n, b1c1_total;
+
+		if (b1c1_total++ < 8)
+			pr_info("b1c1 sde irq #%u sources 0x%x\n",
+				b1c1_total, interrupts);
+		if (time_after(jiffies, b1c1_t0 + HZ)) {
+			b1c1_t0 = jiffies;
+			b1c1_n = 0;
+		}
+		if (++b1c1_n > 10000) {
+			pr_err("b1c1 sde irq STORM: %u/s sources 0x%x total %u, disabling\n",
+			       b1c1_n, interrupts, b1c1_total);
+			disable_irq_nosync(sde_kms->irq_num);
+			return IRQ_HANDLED;
+		}
+	}
+
 	/*
 	 * Taking care of MDP interrupt
 	 */
