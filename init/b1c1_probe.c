@@ -5,7 +5,6 @@
  * text lines at the bottom show the current initcall and driver probe.
  */
 #include <linux/kernel_stat.h>
-#include <linux/irqdesc.h>
 #include <linux/irq.h>
 #include <linux/init.h>
 #include <linux/io.h>
