@@ -2250,6 +2250,7 @@ static int msm_pdev_probe(struct platform_device *pdev)
 	int ret;
 	struct component_match *match = NULL;
 
+	pr_info("b1c1 msm_drm probe enter\n");
 	ret = add_display_components(&pdev->dev, &match);
 	if (ret)
 		goto fail;
@@ -2258,8 +2259,10 @@ static int msm_pdev_probe(struct platform_device *pdev)
 	if (ret)
 		goto fail;
 
-	if (!match)
+	if (!match) {
+		pr_info("b1c1 msm_drm no components\n");
 		return -ENODEV;
+	}
 
 	device_enable_async_suspend(&pdev->dev);
 
@@ -2352,7 +2355,12 @@ static int __init msm_drm_register(void)
 	msm_edp_register();
 	msm_hdmi_register();
 	adreno_register();
-	return platform_driver_register(&msm_platform_driver);
+	{
+		int ret = platform_driver_register(&msm_platform_driver);
+
+		pr_info("b1c1 msm_drm register %d\n", ret);
+		return ret;
+	}
 }
 
 static void __exit msm_drm_unregister(void)
