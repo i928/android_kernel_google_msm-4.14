@@ -289,8 +289,15 @@ static int b1c1_save_thread(void *unused)
 	if (!buf)
 		return -ENOMEM;
 	save_dumper.active = true;
+	int n = 0;
+
 	msleep(8000);
 	for (;;) {
+		if (++n == 5) {
+			extern void b1c1_dump_deferred(void);
+
+			b1c1_dump_deferred();
+		}
 		b1c1_save_log(buf);
 		msleep(5000);
 	}

@@ -2224,7 +2224,11 @@ static int add_gpu_components(struct device *dev,
 
 static int msm_drm_bind(struct device *dev)
 {
-	return msm_drm_init(dev, &msm_driver);
+	/* TEMP b1c1 */
+	int ret = msm_drm_init(dev, &msm_driver);
+
+	pr_info("b1c1 msm_drm bind %d\n", ret);
+	return ret;
 }
 
 static void msm_drm_unbind(struct device *dev)
@@ -2265,9 +2269,11 @@ static int msm_pdev_probe(struct platform_device *pdev)
 	if (ret)
 		goto fail;
 
+	pr_info("b1c1 msm_drm master added\n");
 	return 0;
 
 fail:
+	pr_info("b1c1 msm_drm probe %d\n", ret);
 	of_platform_depopulate(&pdev->dev);
 	return ret;
 }

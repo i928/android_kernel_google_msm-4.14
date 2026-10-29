@@ -53,6 +53,18 @@
  */
 static DEFINE_MUTEX(deferred_probe_mutex);
 static LIST_HEAD(deferred_probe_pending_list);
+
+/* TEMP b1c1: list what is still waiting */
+void b1c1_dump_deferred(void)
+{
+	struct device_private *p;
+
+	mutex_lock(&deferred_probe_mutex);
+	list_for_each_entry(p, &deferred_probe_pending_list, deferred_probe)
+		pr_info("b1c1 deferred: %s (%s)\n", dev_name(p->device),
+			p->device->driver ? p->device->driver->name : "-");
+	mutex_unlock(&deferred_probe_mutex);
+}
 static LIST_HEAD(deferred_probe_active_list);
 static atomic_t deferred_trigger_count = ATOMIC_INIT(0);
 static bool initcalls_done;
