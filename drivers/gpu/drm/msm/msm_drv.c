@@ -891,7 +891,8 @@ static int msm_drm_init(struct device *dev, struct drm_driver *drv)
 	if (kms) {
 		pm_runtime_get_sync(dev);
 		ret = drm_irq_install(ddev, platform_get_irq(pdev, 0));
-		pm_runtime_put_sync(dev);
+		/* TEMP b1c1: keep MDSS powered; does the put kill the splash? */
+		pr_info("b1c1 skip pm_runtime_put_sync after irq install\n");
 		if (ret < 0) {
 			dev_err(dev, "failed to install IRQ handler\n");
 			goto fail;

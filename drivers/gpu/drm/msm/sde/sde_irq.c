@@ -57,12 +57,6 @@ irqreturn_t sde_irq(struct msm_kms *kms)
 			pr_err_ratelimited("b1c1 sde irq while suspended\n");
 			return IRQ_NONE;
 		}
-		/* probe52: never touch MDSS, just prove the irq arrives */
-		pr_info("b1c1 sde irq hwirq %lu: disabling without reading\n",
-			irq_get_irq_data(sde_kms->irq_num) ?
-			irq_get_irq_data(sde_kms->irq_num)->hwirq : 0UL);
-		disable_irq_nosync(sde_kms->irq_num);
-		return IRQ_HANDLED;
 	}
 
 	sde_kms->hw_intr->ops.get_interrupt_sources(sde_kms->hw_intr,
