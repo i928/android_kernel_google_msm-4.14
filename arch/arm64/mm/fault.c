@@ -334,8 +334,10 @@ static void __do_user_fault(struct task_struct *tsk, unsigned long addr,
 		/* TEMP b1c1: say where handled user faults happen */
 		pr_info("b1c1 fault %s[%d] sig %d at 0x%lx esr 0x%x",
 			tsk->comm, task_pid_nr(tsk), sig, addr, esr);
-		print_vma_addr(KERN_CONT " pc ", regs->pc);
-		print_vma_addr(KERN_CONT " lr ", regs->regs[30]);
+		pr_cont(" pc 0x%llx", regs->pc);
+		print_vma_addr(KERN_CONT " ", regs->pc);
+		pr_cont(" lr 0x%llx", regs->regs[30]);
+		print_vma_addr(KERN_CONT " ", regs->regs[30]);
 		pr_cont("\n");
 	}
 
