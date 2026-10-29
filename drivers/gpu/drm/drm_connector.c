@@ -469,6 +469,11 @@ int drm_connector_register_all(struct drm_device *dev)
 
 	drm_connector_list_iter_begin(dev, &conn_iter);
 	drm_for_each_connector_iter(connector, &conn_iter) {
+		{
+			extern void b1c1_checkpoint(const char *tag);
+
+			b1c1_checkpoint(connector->name);
+		}
 		ret = drm_connector_register(connector);
 		if (ret)
 			break;

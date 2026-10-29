@@ -282,15 +282,34 @@ static void b1c1_save_log(char *buf)
 }
 
 static char *b1c1_save_buf;
+static DEFINE_MUTEX(b1c1_save_lock);
 
-/* TEMP: log a step and save the log right away (save thread only) */
+static void b1c1_save_locked(void)
+{
+	mutex_lock(&b1c1_save_lock);
+	b1c1_save_log(b1c1_save_buf);
+	mutex_unlock(&b1c1_save_lock);
+}
+
+/* TEMP: log a step and save the log right away (display probe thread) */
 void b1c1_checkpoint(const char *tag)
 {
 	pr_info("b1c1 CP %s\n", tag);
-	if (b1c1_save_buf && !strcmp(current->comm, "b1c1_save"))
-		b1c1_save_log(b1c1_save_buf);
+	if (b1c1_save_buf && !strcmp(current->comm, "b1c1_drm"))
+		b1c1_save_locked();
 }
 EXPORT_SYMBOL(b1c1_checkpoint);
+
+static int b1c1_drm_thread(void *unused)
+{
+	extern void b1c1_msm_drm_late(void);
+
+	pr_info("b1c1 display probe start\n");
+	b1c1_msm_drm_late();
+	pr_info("b1c1 display probe done\n");
+	b1c1_save_locked();
+	return 0;
+}
 
 static int b1c1_save_thread(void *unused)
 {
@@ -304,20 +323,14 @@ static int b1c1_save_thread(void *unused)
 
 	msleep(8000);
 	for (;;) {
-		if (++n == 2) {
-			extern void b1c1_msm_drm_late(void);
-
-			pr_info("b1c1 display probe start\n");
-			b1c1_msm_drm_late();
-			pr_info("b1c1 display probe done\n");
-			b1c1_save_log(buf);
-		}
+		if (++n == 2)
+			kthread_run(b1c1_drm_thread, NULL, "b1c1_drm");
 		if (n == 5) {
 			extern void b1c1_dump_deferred(void);
 
 			b1c1_dump_deferred();
 		}
-		b1c1_save_log(buf);
+		b1c1_save_locked();
 		msleep(5000);
 	}
 	return 0;

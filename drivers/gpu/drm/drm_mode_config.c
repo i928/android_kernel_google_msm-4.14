@@ -27,22 +27,27 @@
 #include "drm_crtc_internal.h"
 #include "drm_internal.h"
 
+extern void b1c1_checkpoint(const char *tag);
 int drm_modeset_register_all(struct drm_device *dev)
 {
 	int ret;
 
+	b1c1_checkpoint("drm planes");
 	ret = drm_plane_register_all(dev);
 	if (ret)
 		goto err_plane;
 
+	b1c1_checkpoint("drm crtcs");
 	ret = drm_crtc_register_all(dev);
 	if  (ret)
 		goto err_crtc;
 
+	b1c1_checkpoint("drm encoders");
 	ret = drm_encoder_register_all(dev);
 	if (ret)
 		goto err_encoder;
 
+	b1c1_checkpoint("drm connectors");
 	ret = drm_connector_register_all(dev);
 	if (ret)
 		goto err_connector;

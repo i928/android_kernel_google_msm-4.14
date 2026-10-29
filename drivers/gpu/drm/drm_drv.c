@@ -788,6 +788,7 @@ static void remove_compat_control_link(struct drm_device *dev)
  * RETURNS:
  * 0 on success, negative error code on failure.
  */
+extern void b1c1_checkpoint(const char *tag);
 int drm_dev_register(struct drm_device *dev, unsigned long flags)
 {
 	struct drm_driver *driver = dev->driver;
@@ -795,24 +796,29 @@ int drm_dev_register(struct drm_device *dev, unsigned long flags)
 
 	mutex_lock(&drm_global_mutex);
 
+	b1c1_checkpoint("drm minor control");
 	ret = drm_minor_register(dev, DRM_MINOR_CONTROL);
 	if (ret)
 		goto err_minors;
 
+	b1c1_checkpoint("drm minor render");
 	ret = drm_minor_register(dev, DRM_MINOR_RENDER);
 	if (ret)
 		goto err_minors;
 
+	b1c1_checkpoint("drm minor primary");
 	ret = drm_minor_register(dev, DRM_MINOR_PRIMARY);
 	if (ret)
 		goto err_minors;
 
+	b1c1_checkpoint("drm compat link");
 	ret = create_compat_control_link(dev);
 	if (ret)
 		goto err_minors;
 
 	dev->registered = true;
 
+	b1c1_checkpoint("drm load");
 	if (dev->driver->load) {
 		ret = dev->driver->load(dev, flags);
 		if (ret)
@@ -820,6 +826,7 @@ int drm_dev_register(struct drm_device *dev, unsigned long flags)
 	}
 
 	if (drm_core_check_feature(dev, DRIVER_MODESET)) {
+		b1c1_checkpoint("drm modeset register");
 		ret = drm_modeset_register_all(dev);
 		if (ret)
 			goto err_unload;
