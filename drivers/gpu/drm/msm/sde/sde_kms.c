@@ -3612,6 +3612,7 @@ static int _sde_kms_get_splash_data(struct sde_splash_data *data)
 	return ret;
 }
 
+extern void b1c1_checkpoint(const char *tag);
 static int sde_kms_hw_init(struct msm_kms *kms)
 {
 	struct sde_kms *sde_kms;
@@ -3725,6 +3726,7 @@ static int sde_kms_hw_init(struct msm_kms *kms)
 		goto error;
 	}
 
+	b1c1_checkpoint("kms splash_data");
 	rc = _sde_kms_get_splash_data(&sde_kms->splash_data);
 	if (rc)
 		SDE_DEBUG("sde splash data fetch failed: %d\n", rc);
@@ -3736,6 +3738,7 @@ static int sde_kms_hw_init(struct msm_kms *kms)
 			SDE_POWER_HANDLE_CONT_SPLASH_BUS_IB_QUOTA;
 	}
 
+	b1c1_checkpoint("kms power_enable");
 	rc = sde_power_resource_enable(&priv->phandle, sde_kms->core_client,
 		true);
 	if (rc) {
@@ -3750,10 +3753,12 @@ static int sde_kms_hw_init(struct msm_kms *kms)
 			SDE_POWER_HANDLE_CONT_SPLASH_BUS_AB_QUOTA,
 			SDE_POWER_HANDLE_CONT_SPLASH_BUS_IB_QUOTA);
 
+	b1c1_checkpoint("kms hw_rev");
 	_sde_kms_core_hw_rev_init(sde_kms);
 
 	pr_info("sde hardware revision:0x%x\n", sde_kms->core_rev);
 
+	b1c1_checkpoint("kms catalog");
 	sde_kms->catalog = sde_hw_catalog_init(dev, sde_kms->core_rev);
 	if (IS_ERR_OR_NULL(sde_kms->catalog)) {
 		rc = PTR_ERR(sde_kms->catalog);
@@ -3790,6 +3795,7 @@ static int sde_kms_hw_init(struct msm_kms *kms)
 		SDE_DEBUG("added genpd provider %s\n", sde_kms->genpd.name);
 	}
 
+	b1c1_checkpoint("kms mmu_init");
 	rc = _sde_kms_mmu_init(sde_kms);
 	if (rc) {
 		SDE_ERROR("sde_kms_mmu_init failed: %d\n", rc);
@@ -3797,6 +3803,7 @@ static int sde_kms_hw_init(struct msm_kms *kms)
 	}
 
 	/* Initialize reg dma block which is a singleton */
+	b1c1_checkpoint("kms reg_dma");
 	rc = sde_reg_dma_init(sde_kms->reg_dma, sde_kms->catalog,
 			sde_kms->dev);
 	if (rc) {
@@ -3807,6 +3814,7 @@ static int sde_kms_hw_init(struct msm_kms *kms)
 	sde_dbg_init_dbg_buses(sde_kms->core_rev);
 
 	rm = &sde_kms->rm;
+	b1c1_checkpoint("kms rm_init");
 	rc = sde_rm_init(rm, sde_kms->catalog, sde_kms->mmio,
 			sde_kms->dev);
 	if (rc) {
@@ -3816,6 +3824,7 @@ static int sde_kms_hw_init(struct msm_kms *kms)
 
 	sde_kms->rm_init = true;
 
+	b1c1_checkpoint("kms hw_intr");
 	sde_kms->hw_intr = sde_hw_intr_init(sde_kms->mmio, sde_kms->catalog);
 	if (IS_ERR_OR_NULL(sde_kms->hw_intr)) {
 		rc = PTR_ERR(sde_kms->hw_intr);
@@ -3839,6 +3848,7 @@ static int sde_kms_hw_init(struct msm_kms *kms)
 				sizeof(struct sde_splash_data));
 	}
 
+	b1c1_checkpoint("kms get_mdp");
 	sde_kms->hw_mdp = sde_rm_get_mdp(&sde_kms->rm);
 	if (IS_ERR_OR_NULL(sde_kms->hw_mdp)) {
 		rc = PTR_ERR(sde_kms->hw_mdp);
@@ -3864,6 +3874,7 @@ static int sde_kms_hw_init(struct msm_kms *kms)
 		}
 	}
 
+	b1c1_checkpoint("kms sid");
 	sde_kms->hw_sid = sde_hw_sid_init(sde_kms->sid,
 				sde_kms->sid_len, sde_kms->catalog);
 	if (IS_ERR(sde_kms->hw_sid)) {
@@ -3872,6 +3883,7 @@ static int sde_kms_hw_init(struct msm_kms *kms)
 		goto power_error;
 	}
 
+	b1c1_checkpoint("kms perf");
 	rc = sde_core_perf_init(&sde_kms->perf, dev, sde_kms->catalog,
 			&priv->phandle, priv->pclient, "core_clk");
 	if (rc) {
@@ -3883,6 +3895,7 @@ static int sde_kms_hw_init(struct msm_kms *kms)
 	 * _sde_kms_drm_obj_init should create the DRM related objects
 	 * i.e. CRTCs, planes, encoders, connectors and so forth
 	 */
+	b1c1_checkpoint("kms drm_obj");
 	rc = _sde_kms_drm_obj_init(sde_kms);
 	if (rc) {
 		SDE_ERROR("modeset init failed: %d\n", rc);
