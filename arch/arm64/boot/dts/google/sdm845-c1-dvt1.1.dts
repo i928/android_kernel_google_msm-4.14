@@ -26,39 +26,3 @@
 	qcom,msm-id = <321 0x20001>;
 	qcom,board-id = <0x00011505 0>;
 };
-
-/* TEMP bring-up: kernel console on the bootloader splash buffer */
-/ {
-	framebuffer@9d400000 {
-		compatible = "simple-framebuffer";
-		reg = <0 0x9d400000 0 (1440 * 2960 * 4)>;
-		width = <1440>;
-		height = <2960>;
-		stride = <(1440 * 4)>;
-		format = "a8r8g8b8";
-		status = "okay";
-	};
-};
-
-&cont_splash_memory {
-	no-map;
-};
-
-&mdss_mdp {
-	status = "disabled";
-};
-
-/* TEMP: dwc3-msm loops in deferred probe; take USB out to see what's next */
-/* TEMP: keep the bootloader's AMOLED AVDD/ELVDD rails untouched (splash) */
-&pmi8998_wled {
-	status = "disabled";
-};
-
-&labibb {
-	status = "disabled";
-};
-
-/* TEMP: sde_rotator drops the MDSS GDSC vote after probe and kills the splash */
-&mdss_rotator {
-	status = "disabled";
-};
