@@ -330,6 +330,13 @@ static void __do_user_fault(struct task_struct *tsk, unsigned long addr,
 		print_vma_addr(KERN_CONT ", in ", regs->pc);
 		pr_cont("\n");
 		__show_regs(regs);
+	} else if (printk_ratelimit()) {
+		/* TEMP b1c1: say where handled user faults happen */
+		pr_info("b1c1 fault %s[%d] sig %d at 0x%lx esr 0x%x",
+			tsk->comm, task_pid_nr(tsk), sig, addr, esr);
+		print_vma_addr(KERN_CONT " pc ", regs->pc);
+		print_vma_addr(KERN_CONT " lr ", regs->regs[30]);
+		pr_cont("\n");
 	}
 
 	tsk->thread.fault_address = addr;
