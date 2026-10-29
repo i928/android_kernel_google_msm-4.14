@@ -4,6 +4,7 @@
  * progress is visible without UART/pstore. Stripes mark boot stages;
  * text lines at the bottom show the current initcall and driver probe.
  */
+#include <linux/kmod.h>
 #include <linux/kernel_stat.h>
 #include <linux/irq.h>
 #include <linux/init.h>
@@ -204,10 +205,37 @@ static void __maybe_unused b1c1_log_draw(bool nolock)
 	raw_spin_unlock_irqrestore(&fb_lock, flags);
 }
 
+/*
+ * TEMP: /data runs with checkpoint=disable and is rolled back because the
+ * boot never completes, so dump logcat to /metadata instead.
+ */
+static void b1c1_dump_logcat(const char *path)
+{
+	char *argv[] = { "/system/bin/logcat", "-b", "all", "-d", "-v",
+			 "threadtime", "-f", (char *)path, NULL };
+	char *envp[] = { "PATH=/system/bin:/system/xbin", NULL };
+	int ret;
+
+	ret = call_usermodehelper(argv[0], argv, envp, UMH_WAIT_PROC);
+	pr_info("b1c1 logcat -> %s ret %d\n", path, ret);
+}
+
 static int b1c1_log_thread(void *unused)
 {
+	bool dumped60 = false, dumped110 = false;
+
 	msleep(1000);
 	for (;;) {
+		if (!dumped60 &&
+		    time_after(jiffies, INITIAL_JIFFIES + 60 * HZ)) {
+			dumped60 = true;
+			b1c1_dump_logcat("/metadata/b1c1-logcat-60.txt");
+		}
+		if (!dumped110 &&
+		    time_after(jiffies, INITIAL_JIFFIES + 110 * HZ)) {
+			dumped110 = true;
+			b1c1_dump_logcat("/metadata/b1c1-logcat-110.txt");
+		}
 		/* MDSS owns the splash buffer again; no screen log */
 		msleep(250);
 		/* Warm reboot to fastboot (log is saved in /metadata) */
