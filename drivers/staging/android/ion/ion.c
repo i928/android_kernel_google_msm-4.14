@@ -1233,6 +1233,10 @@ out:
 
 static const struct file_operations ion_fops = {
 	.owner          = THIS_MODULE,
+#ifdef CONFIG_ION_LEGACY_ABI
+	.open		= ion_legacy_open,
+	.release	= ion_legacy_release,
+#endif
 	.unlocked_ioctl = ion_ioctl,
 #ifdef CONFIG_COMPAT
 	.compat_ioctl	= ion_ioctl,

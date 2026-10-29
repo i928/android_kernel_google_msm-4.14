@@ -59,6 +59,9 @@ long ion_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 	unsigned int dir;
 	union ion_ioctl_arg data;
 
+	if (ion_legacy_cmd(cmd))
+		return ion_legacy_ioctl(filp, cmd, arg);
+
 	dir = ion_ioctl_dir(cmd);
 
 	if (_IOC_SIZE(cmd) > sizeof(data))
