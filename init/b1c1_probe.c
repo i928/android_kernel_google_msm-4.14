@@ -40,9 +40,8 @@ static bool log_mode;
 
 static void __iomem *fb_map(void)
 {
-	if (!fb)
-		fb = ioremap_wc(SPLASH_BASE, FB_STRIDE * FB_H);
-	return fb;
+	/* MDSS owns the splash buffer (mapped RAM) again: no drawing */
+	return NULL;
 }
 
 static void fb_fill_rows(int y, int rows, u32 val)
