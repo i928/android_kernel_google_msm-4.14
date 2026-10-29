@@ -664,6 +664,11 @@ CONFIG_EXT4_FS_POSIX_ACL=y
 CONFIG_EXT4_FS_SECURITY=y
 CONFIG_F2FS_FS=y
 CONFIG_F2FS_FS_SECURITY=y
+CONFIG_F2FS_FS_COMPRESSION=y
+CONFIG_F2FS_FS_LZO=y
+CONFIG_F2FS_FS_LZ4=y
+CONFIG_F2FS_FS_LZ4HC=y
+CONFIG_F2FS_FS_ZSTD=y
 # EROFS, required to mount coral's system/product/system_ext/vendor. Those four
 # moved to erofs because with ext4 they summed to 6.24GB against the hard 4.88GB
 # BOARD_SUPER_PARTITION_SIZE/2 ceiling. Same five symbols sunfish_defconfig sets.
