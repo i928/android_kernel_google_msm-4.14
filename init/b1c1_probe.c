@@ -232,17 +232,33 @@ static int b1c1_umh_init(struct subprocess_info *info, struct cred *new)
 
 static void b1c1_dump_logcat(const char *path)
 {
-	char *argv[] = { "/system/bin/logcat", "-b", "all", "-d", "-v",
-			 "threadtime", "-f", (char *)path, NULL };
+	char cmd[256];
+	char *argv[] = { "/system/bin/sh", "-c", cmd, NULL };
 	static char *envp[] = { "PATH=/system/bin:/system/xbin", NULL };
 	struct subprocess_info *info;
 	int ret = -ENOMEM;
+	struct kstat st;
+	struct file *f;
 
+	snprintf(cmd, sizeof(cmd),
+		 "id > %s.err; ls -la /metadata >> %s.err 2>&1; "
+		 "/system/bin/logcat -b all -d -v threadtime > %s 2>> %s.err; "
+		 "echo rc $? >> %s.err", path, path, path, path, path);
 	info = call_usermodehelper_setup(argv[0], argv, envp, GFP_KERNEL,
 					 b1c1_umh_init, NULL, NULL);
 	if (info)
 		ret = call_usermodehelper_exec(info, UMH_WAIT_PROC);
 	pr_info("b1c1 logcat -> %s ret %d\n", path, ret);
+	f = filp_open(path, O_RDONLY, 0);
+	if (IS_ERR(f)) {
+		pr_info("b1c1 logcat: kernel open %s err %ld\n", path,
+			PTR_ERR(f));
+		return;
+	}
+	if (!vfs_getattr(&f->f_path, &st, STATX_SIZE, AT_STATX_SYNC_AS_STAT))
+		pr_info("b1c1 logcat: %s size %lld\n", path, st.size);
+	vfs_fsync(f, 0);
+	filp_close(f, NULL);
 }
 
 static int b1c1_log_thread(void *unused)
