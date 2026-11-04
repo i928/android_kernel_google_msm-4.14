@@ -2654,7 +2654,11 @@ static void msm_geni_serial_set_termios(struct uart_port *uport,
 		tx_parity_cfg, rx_trans_cfg, rx_parity_cfg, bits_per_char,
 		stop_bit_len, ser_clk_cfg);
 
-	if (termios->c_cflag & CRTSCTS) {
+	/*
+	 * Keep RFR deasserted if the client turned flow off (TIOCMBIC RTS),
+	 * like 4.9: the BT HAL holds the SoC off while it switches baud.
+	 */
+	if ((termios->c_cflag & CRTSCTS) && !port->manual_flow) {
 		geni_write_reg_nolog(0x0, uport->membase, SE_UART_MANUAL_RFR);
 		IPC_LOG_MSG(port->ipc_log_misc,
 			"%s: Manual flow Disabled, HW Flow ON\n", __func__);
@@ -2668,7 +2672,7 @@ static void msm_geni_serial_set_termios(struct uart_port *uport,
 	IPC_LOG_MSG(port->ipc_log_misc, "BitsChar%d stop bit%d\n",
 				bits_per_char, stop_bit_len);
 exit_set_termios:
-	if (!uart_console(uport))
+	if (!uart_console(uport) && !port->manual_flow)
 		msm_geni_serial_set_manual_flow(true, port);
 
 	msm_geni_serial_start_rx(uport);
