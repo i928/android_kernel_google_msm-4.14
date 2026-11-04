@@ -242,7 +242,7 @@ static void b1c1_dump_logcat(const char *path)
 
 	snprintf(cmd, sizeof(cmd),
 		 "id > %s.err; ls -la /metadata >> %s.err 2>&1; "
-		 "/system/bin/logcat -b all -d -v threadtime > %s 2>> %s.err; "
+		 "/system/bin/logcat -b all -d -v threadtime 2>> %s.err | /system/bin/gzip > %s; "
 		 "echo rc $? >> %s.err", path, path, path, path, path);
 	info = call_usermodehelper_setup(argv[0], argv, envp, GFP_KERNEL,
 					 b1c1_umh_init, NULL, NULL);
@@ -295,13 +295,13 @@ static int b1c1_log_thread(void *unused)
 			qrtr_ns = b1c1_start_qrtr_ns();
 		if (!dumped60 &&
 		    time_after(jiffies, INITIAL_JIFFIES + 60 * HZ)) {
+			/* 10 MB /metadata: one gzipped dump at 110 s only */
 			dumped60 = true;
-			b1c1_dump_logcat("/metadata/b1c1-logcat-60.txt");
 		}
 		if (!dumped110 &&
 		    time_after(jiffies, INITIAL_JIFFIES + 110 * HZ)) {
 			dumped110 = true;
-			b1c1_dump_logcat("/metadata/b1c1-logcat-110.txt");
+			b1c1_dump_logcat("/metadata/b1c1-logcat-110.txt.gz");
 		}
 		/* MDSS owns the splash buffer again; no screen log */
 		msleep(250);
