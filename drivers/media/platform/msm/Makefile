@@ -10,6 +10,9 @@ obj-$(CONFIG_MSM_VIDC_3X_V4L2) += vidc_3x/
 ifeq ($(CONFIG_BOARD_SUNFISH),y)
 obj-$(CONFIG_SPECTRA_CAMERA) += camera/
 endif #CONFIG_BOARD_SUNFISH
+ifeq ($(CONFIG_BOARD_B1C1),y)
+obj-$(CONFIG_SPECTRA_CAMERA) += camera_b1c1/
+endif #CONFIG_BOARD_B1C1
 ifeq ($(CONFIG_BOARD_FLORAL),y)
 obj-$(CONFIG_SPECTRA_CAMERA) += camera_floral/
 endif #CONFIG_BOARD_FLORAL
