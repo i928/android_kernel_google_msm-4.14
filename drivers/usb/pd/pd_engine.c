@@ -1571,6 +1571,8 @@ static int tcpm_start_drp_toggling(struct tcpc_dev *dev,
 	/* Force a recheck of the CC status since cc lines are
 	 * assumed to be open.
 	 */
+	pd->cc1 = TYPEC_CC_OPEN;
+	pd->cc2 = TYPEC_CC_OPEN;
 	psy_changed(&pd->psy_nb, PSY_EVENT_PROP_CHANGED, pd->usb_psy);
 
 unlock:
