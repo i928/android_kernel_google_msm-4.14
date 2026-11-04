@@ -2573,7 +2573,13 @@ static void msm_geni_serial_set_termios(struct uart_port *uport,
 		clk_div *= 2;
 
 	uport->uartclk = clk_rate;
-	clk_set_rate(port->serial_rsc.se_clk, clk_rate);
+	{	/* TEMP b1c1 */
+		int b1c1_ret = clk_set_rate(port->serial_rsc.se_clk, clk_rate);
+
+		pr_info("b1c1 uart %s baud %u want %lu div %d set %d got %lu\n",
+			dev_name(uport->dev), baud, clk_rate, clk_div,
+			b1c1_ret, clk_get_rate(port->serial_rsc.se_clk));
+	}
 	ser_clk_cfg |= SER_CLK_EN;
 	ser_clk_cfg |= (clk_div << CLK_DIV_SHFT);
 
