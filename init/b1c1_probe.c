@@ -261,12 +261,38 @@ static void b1c1_dump_logcat(const char *path)
 	filp_close(f, NULL);
 }
 
+/*
+ * TEMP: msm-4.14 has no in-kernel QRTR name service and the 4.9 vendor
+ * image never starts /vendor/bin/qrtr-ns, so every QMI lookup hangs.
+ * Start it as soon as /vendor is mounted. Returns true once exec'd.
+ */
+static bool b1c1_start_qrtr_ns(void)
+{
+	static char *argv[] = { "/vendor/bin/qrtr-ns", "-f", NULL };
+	static char *envp[] = { "PATH=/system/bin:/vendor/bin", NULL };
+	static int last_err;
+	struct subprocess_info *info;
+	int ret = -ENOMEM;
+
+	info = call_usermodehelper_setup(argv[0], argv, envp, GFP_KERNEL,
+					 b1c1_umh_init, NULL, NULL);
+	if (info)
+		ret = call_usermodehelper_exec(info, UMH_WAIT_EXEC);
+	if (ret != last_err || !ret)
+		pr_info("b1c1 qrtr-ns start ret %d\n", ret);
+	last_err = ret;
+	return ret == 0;
+}
+
 static int b1c1_log_thread(void *unused)
 {
-	bool dumped60 = false, dumped110 = false;
+	bool dumped60 = false, dumped110 = false, qrtr_ns = false;
+	unsigned int tries = 0;
 
 	msleep(1000);
 	for (;;) {
+		if (!qrtr_ns && tries++ < 400)
+			qrtr_ns = b1c1_start_qrtr_ns();
 		if (!dumped60 &&
 		    time_after(jiffies, INITIAL_JIFFIES + 60 * HZ)) {
 			dumped60 = true;
