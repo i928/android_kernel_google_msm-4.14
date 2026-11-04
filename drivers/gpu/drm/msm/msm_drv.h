@@ -664,6 +664,9 @@ struct msm_drm_private {
 	struct drm_property *crtc_property[CRTC_PROP_COUNT];
 	struct drm_property *conn_property[CONNECTOR_PROP_COUNT];
 
+	/* rotation property shared by all planes */
+	struct drm_property *plane_rotation_property;
+
 	/* Color processing properties for the crtc */
 	struct drm_property **cp_property;
 
