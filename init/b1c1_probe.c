@@ -261,6 +261,22 @@ static void b1c1_dump_logcat(const char *path)
 	filp_close(f, NULL);
 }
 
+static void b1c1_logcat_grow(void)
+{
+	static char *argv[] = { "/system/bin/sh", "-c",
+		"/system/bin/logcat -b main,system,crash,events -G 16M "
+		"> /metadata/b1c1-logcat-G.err 2>&1", NULL };
+	static char *envp[] = { "PATH=/system/bin:/system/xbin", NULL };
+	struct subprocess_info *info;
+	int ret = -ENOMEM;
+
+	info = call_usermodehelper_setup(argv[0], argv, envp, GFP_KERNEL,
+					 b1c1_umh_init, NULL, NULL);
+	if (info)
+		ret = call_usermodehelper_exec(info, UMH_WAIT_PROC);
+	pr_info("b1c1 logcat -G ret %d\n", ret);
+}
+
 /*
  * TEMP: msm-4.14 has no in-kernel QRTR name service and the 4.9 vendor
  * image never starts /vendor/bin/qrtr-ns, so every QMI lookup hangs.
@@ -294,9 +310,14 @@ static int b1c1_log_thread(void *unused)
 		if (!qrtr_ns && tries++ < 400)
 			qrtr_ns = b1c1_start_qrtr_ns();
 		if (!dumped60 &&
-		    time_after(jiffies, INITIAL_JIFFIES + 60 * HZ)) {
-			/* 10 MB /metadata: one gzipped dump at 110 s only */
+		    time_after(jiffies, INITIAL_JIFFIES + 25 * HZ)) {
+			/*
+			 * 10 MB /metadata: one gzipped dump at 110 s only.
+			 * Grow the rings first so a log flood (camera
+			 * notifyError) does not evict the interesting part.
+			 */
 			dumped60 = true;
+			b1c1_logcat_grow();
 		}
 		if (!dumped110 &&
 		    time_after(jiffies, INITIAL_JIFFIES + 110 * HZ)) {
