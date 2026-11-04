@@ -89,6 +89,8 @@ void logbuffer_vlog(struct logbuffer *instance, const char *fmt,
 	 * printed after resume.
 	 */
 	vsnprintf(tmpbuffer, sizeof(tmpbuffer), fmt ? : "", args);
+	if (tmpbuffer[0])	/* TEMP b1c1 */
+		pr_info("lb %s: %s\n", instance->id, tmpbuffer);
 
 	spin_lock_irqsave(&instance->logbuffer_lock, flags);
 	if (instance->logbuffer_head < 0 ||

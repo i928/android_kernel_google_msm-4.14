@@ -2266,6 +2266,13 @@ static int f2fs_remount(struct super_block *sb, int *flags, char *data)
 	if (err)
 		goto restore_opts;
 
+	/* TEMP b1c1: keep 4.14 test boots from committing /data */
+	if (!enable_checkpoint && !test_opt(sbi, DISABLE_CHECKPOINT)) {
+		pr_emerg("b1c1: refusing f2fs checkpoint=enable\n");
+		err = -EBUSY;
+		goto restore_opts;
+	}
+
 	/*
 	 * Previous and new state of filesystem is RO,
 	 * so skip checking GC and FLUSH_MERGE conditions.
