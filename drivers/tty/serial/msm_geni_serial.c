@@ -2218,6 +2218,7 @@ static irqreturn_t msm_geni_wakeup_isr(int isr, void *dev)
 	unsigned long flags;
 
 	spin_lock_irqsave(&uport->lock, flags);
+	pr_info("b1c1 wakeup-isr edge %d\n", port->edge_count);	/* TEMP b1c1 */
 	IPC_LOG_MSG(port->ipc_log_rx, "%s: Edge-Count %d\n", __func__,
 							port->edge_count);
 	if (port->wakeup_byte && (port->edge_count == 2)) {
@@ -2714,7 +2715,7 @@ exit_set_termios:
 			port->manual_flow,
 			geni_read_reg_nolog(uport->membase, SE_UART_MANUAL_RFR),
 			port->xfer_mode);
-		b1c1_rxlog = 6;
+		b1c1_rxlog = 400;
 	}
 
 	msm_geni_serial_start_rx(uport);
