@@ -53,10 +53,8 @@ irqreturn_t sde_irq(struct msm_kms *kms)
 			pr_info("b1c1 sde irq entry #%u rpm %d usage %d\n",
 				b1c1_entry, d->power.runtime_status,
 				atomic_read(&d->power.usage_count));
-		if (!pm_runtime_active(d)) {
-			pr_err_ratelimited("b1c1 sde irq while suspended\n");
-			return IRQ_NONE;
-		}
+		if (!pm_runtime_active(d))
+			pr_err_ratelimited("b1c1 sde irq while rpm suspended (handled)\n");
 	}
 
 	sde_kms->hw_intr->ops.get_interrupt_sources(sde_kms->hw_intr,
