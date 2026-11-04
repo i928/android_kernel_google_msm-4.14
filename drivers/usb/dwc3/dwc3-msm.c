@@ -3445,10 +3445,10 @@ static int dwc3_msm_id_notifier(struct notifier_block *nb,
 	struct extcon_dev *edev = ptr;
 	struct extcon_nb *enb = container_of(nb, struct extcon_nb, id_nb);
 	struct dwc3_msm *mdwc = enb->mdwc;
+	enum dwc3_id_state id;
 
 	pr_info("b1c1 %s idx %d event %lu data_en %d\n", __func__, enb->idx,
 		event, mdwc ? mdwc->usb_data_enabled : -1);	/* TEMP */
-	enum dwc3_id_state id;
 
 	if (!edev || !mdwc)
 		return NOTIFY_DONE;
