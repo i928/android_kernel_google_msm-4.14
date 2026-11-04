@@ -320,15 +320,15 @@ static int b1c1_log_thread(void *unused)
 			b1c1_logcat_grow();
 		}
 		if (!dumped110 &&
-		    time_after(jiffies, INITIAL_JIFFIES + 110 * HZ)) {
+		    time_after(jiffies, INITIAL_JIFFIES + 170 * HZ)) {
 			dumped110 = true;
-			b1c1_dump_logcat("/metadata/b1c1-logcat-110.txt.gz");
+			b1c1_dump_logcat("/metadata/b1c1-logcat-170.txt.gz");
 		}
 		/* MDSS owns the splash buffer again; no screen log */
 		msleep(250);
 		/* Warm reboot to fastboot (log is saved in /metadata) */
-		if (time_after(jiffies, INITIAL_JIFFIES + 120 * HZ)) {
-			pr_emerg("b1c1: 120 s, syncing\n");
+		if (time_after(jiffies, INITIAL_JIFFIES + 180 * HZ)) {
+			pr_emerg("b1c1: 180 s, syncing\n");
 			/* flush /data (persistent logcat) before the hard reset */
 			emergency_sync();
 			msleep(5000);
