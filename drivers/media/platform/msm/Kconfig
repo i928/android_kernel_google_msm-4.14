@@ -72,3 +72,7 @@ endif
 if BOARD_FLORAL
 source "drivers/media/platform/msm/camera_floral/Kconfig"
 endif
+
+if BOARD_B1C1
+source "drivers/media/platform/msm/camera_b1c1/Kconfig"
+endif
