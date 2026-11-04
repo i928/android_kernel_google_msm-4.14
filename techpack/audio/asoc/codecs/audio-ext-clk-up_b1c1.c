@@ -492,6 +492,21 @@ err:
 	return -EINVAL;
 }
 
+/*
+ * The 4.14 DT is built against dt-bindings where AUDIO_PMIC_LNBB_CLK is 1
+ * (4.9: 0), so tavil asks for <&clock_audio_lnbb 1>. In LNBB mode this
+ * driver only provides the one clock: hand it out for any index.
+ */
+static struct clk *audio_ref_clk_src_get(struct of_phandle_args *clkspec,
+					 void *data)
+{
+	struct clk_onecell_data *clk_data = data;
+
+	if (clk_data->clk_num == 1)
+		return clk_data->clks[0];
+	return of_clk_src_onecell_get(clkspec, data);
+}
+
 static int audio_ref_clk_probe(struct platform_device *pdev)
 {
 	int clk_gpio;
@@ -589,7 +604,7 @@ static int audio_ref_clk_probe(struct platform_device *pdev)
 	}
 
 	ret = of_clk_add_provider(pdev->dev.of_node,
-				of_clk_src_onecell_get, clk_data);
+				audio_ref_clk_src_get, clk_data);
 	if (ret) {
 		dev_err(&pdev->dev, "%s: audio ref clock register failed\n",
 			__func__);
