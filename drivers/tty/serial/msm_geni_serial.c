@@ -91,6 +91,15 @@
 #define PAR_MARK		(0x11)
 
 /* SE_UART_MANUAL_RFR register fields */
+/*
+ * 4.9 numbered the PM ioctls 0x5441-0x5443; 0x5441 is TIOCGPTPEER since 4.13
+ * and they moved to 0x544D-0x544F. Vendor blobs built for 4.9 (the QTI BT
+ * HAL) still use the old numbers.
+ */
+#define MSM_GENI_LEGACY_TIOCPMGET	0x5441
+#define MSM_GENI_LEGACY_TIOCPMPUT	0x5442
+#define MSM_GENI_LEGACY_TIOCPMACT	0x5443
+
 #define UART_MANUAL_RFR_EN	(BIT(31))
 #define UART_RFR_NOT_READY	(BIT(1))
 #define UART_RFR_READY		(BIT(0))
@@ -603,15 +612,18 @@ static int msm_geni_serial_ioctl(struct uart_port *uport, unsigned int cmd,
 	int ret = -ENOIOCTLCMD;
 
 	switch (cmd) {
-	case TIOCPMGET: {
+	case TIOCPMGET:
+	case MSM_GENI_LEGACY_TIOCPMGET: {
 		ret = vote_clock_on(uport);
 		break;
 	}
-	case TIOCPMPUT: {
+	case TIOCPMPUT:
+	case MSM_GENI_LEGACY_TIOCPMPUT: {
 		ret = vote_clock_off(uport);
 		break;
 	}
-	case TIOCPMACT: {
+	case TIOCPMACT:
+	case MSM_GENI_LEGACY_TIOCPMACT: {
 		ret = !pm_runtime_status_suspended(uport->dev);
 		break;
 	}
