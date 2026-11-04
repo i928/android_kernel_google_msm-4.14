@@ -600,8 +600,9 @@ static int vote_clock_off(struct uart_port *uport)
 static int msm_geni_serial_ioctl(struct uart_port *uport, unsigned int cmd,
 						unsigned long arg)
 {
-	pr_info("b1c1 ioctl %s 0x%x\n", current->comm, cmd);	/* TEMP b1c1 */
 	int ret = -ENOIOCTLCMD;
+
+	pr_info("b1c1 ioctl %s 0x%x\n", current->comm, cmd);	/* TEMP b1c1 */
 
 	switch (cmd) {
 	case TIOCPMGET: {
