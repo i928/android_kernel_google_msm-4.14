@@ -232,7 +232,7 @@ static int b1c1_umh_init(struct subprocess_info *info, struct cred *new)
 
 static void b1c1_dump_logcat(const char *path)
 {
-	char cmd[256];
+	char cmd[512];
 	char *argv[] = { "/system/bin/sh", "-c", cmd, NULL };
 	static char *envp[] = { "PATH=/system/bin:/system/xbin", NULL };
 	struct subprocess_info *info;
