@@ -2269,11 +2269,14 @@ retry:
 
 		obj = drm_mode_object_find(dev, file_priv, obj_id, DRM_MODE_OBJECT_ANY);
 		if (!obj) {
+			pr_err_ratelimited("b1c1 atomic: no object %u\n", obj_id);
 			ret = -ENOENT;
 			goto out;
 		}
 
 		if (!obj->properties) {
+			pr_err_ratelimited("b1c1 atomic: object %u type 0x%x has no props\n",
+					   obj_id, obj->type);
 			drm_mode_object_put(obj);
 			ret = -ENOENT;
 			goto out;
@@ -2300,6 +2303,12 @@ retry:
 
 			prop = drm_mode_obj_find_prop_id(obj, prop_id);
 			if (!prop) {
+				struct drm_property *p2 =
+					drm_property_find(dev, file_priv, prop_id);
+
+				pr_err_ratelimited("b1c1 atomic: object %u type 0x%x lacks prop %u (%s)\n",
+						   obj_id, obj->type, prop_id,
+						   p2 ? p2->name : "unknown");
 				drm_mode_object_put(obj);
 				ret = -ENOENT;
 				goto out;
@@ -2316,6 +2325,8 @@ retry:
 			ret = drm_atomic_set_property(state, obj, prop,
 						      prop_value);
 			if (ret) {
+				pr_err_ratelimited("b1c1 atomic: set %s on object %u = 0x%llx ret %d\n",
+						   prop->name, obj_id, prop_value, ret);
 				drm_mode_object_put(obj);
 				goto out;
 			}
@@ -2335,6 +2346,8 @@ retry:
 	ret = prepare_crtc_signaling(dev, state, arg, file_priv, &fence_state,
 				     &num_fences);
 	if (ret)
+		pr_err_ratelimited("b1c1 atomic: crtc signaling ret %d\n", ret);
+	if (ret)
 		goto out;
 
 	if (arg->flags & DRM_MODE_ATOMIC_TEST_ONLY) {
@@ -2347,6 +2360,9 @@ retry:
 
 		ret = drm_atomic_commit(state);
 	}
+	if (ret && ret != -EDEADLK)
+		pr_err_ratelimited("b1c1 atomic: check/commit flags 0x%x ret %d\n",
+				   arg->flags, ret);
 
 out:
 	drm_atomic_clean_old_fb(dev, plane_mask, ret);
