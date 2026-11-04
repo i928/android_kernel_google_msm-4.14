@@ -110,7 +110,11 @@ endif
 
 # for SDM845 sound card driver
 ifdef CONFIG_SND_SOC_MACHINE_SDM845
+ifeq ($(CONFIG_BOARD_B1C1), y)
+	MACHINE_OBJS += sdm845_b1c1.o
+else
 	MACHINE_OBJS += sdm845.o
+endif
 endif
 
 # for SM8150 sound card driver
