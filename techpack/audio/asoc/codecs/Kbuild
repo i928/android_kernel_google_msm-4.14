@@ -110,7 +110,12 @@ ifdef CONFIG_SND_SOC_WCD9XXX_V2
 	WCD9XXX_OBJS += wcd9xxx-soc-init.o
 	WCD9XXX_OBJS += wcd-dsp-utils.o
 	WCD9XXX_OBJS += wcd-dsp-mgr.o
+ifeq ($(CONFIG_BOARD_B1C1), y)
+	# b1c1 DT uses the 4.9 binding (osr_clk + qcom,node_has_rpm_clock)
+	WCD9XXX_OBJS += audio-ext-clk-up_b1c1.o
+else
 	WCD9XXX_OBJS += audio-ext-clk-up.o
+endif
 endif
 
 ifdef CONFIG_SND_SOC_WCD9335
