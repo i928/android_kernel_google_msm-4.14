@@ -707,6 +707,9 @@ static void msm_geni_serial_set_mctrl(struct uart_port *uport,
 							SE_UART_MANUAL_RFR);
 	/* Write to flow control must complete before return to client*/
 	mb();
+	if (!uart_console(uport))	/* TEMP b1c1 */
+		pr_info("b1c1 mctrl %s 0x%x rfr 0x%x\n", current->comm, mctrl,
+			geni_read_reg_nolog(uport->membase, SE_UART_MANUAL_RFR));
 	IPC_LOG_MSG(port->ipc_log_misc,
 			"%s:%s, mctrl=0x%x, manual_rfr=0x%x, flow=%s\n",
 			__func__, current->comm, mctrl, uart_manual_rfr,
@@ -1663,6 +1666,19 @@ static void msm_geni_serial_stop_rx(struct uart_port *uport)
 	stop_rx_sequencer(uport);
 }
 
+static int b1c1_rxlog;	/* TEMP b1c1: RX chunks to log after a baud change */
+
+static void b1c1_log_rx(struct uart_port *uport, const char *how,
+			const unsigned char *buf, int len, bool drop)
+{
+	if (b1c1_rxlog <= 0 || uart_console(uport))
+		return;
+	b1c1_rxlog--;
+	pr_info("b1c1 rx %s len %d drop %d rfr 0x%x: %*ph\n", how, len, drop,
+		geni_read_reg_nolog(uport->membase, SE_UART_MANUAL_RFR),
+		min(len, 16), buf);
+}
+
 static int handle_rx_hs(struct uart_port *uport,
 			unsigned int rx_fifo_wc,
 			unsigned int rx_last_byte_valid,
@@ -1682,6 +1698,8 @@ static int handle_rx_hs(struct uart_port *uport,
 	tport = &uport->state->port;
 	ioread32_rep((uport->membase + SE_GENI_RX_FIFOn), msm_port->rx_fifo,
 								rx_fifo_wc);
+	b1c1_log_rx(uport, "fifo", (unsigned char *)msm_port->rx_fifo,
+		    rx_bytes, drop_rx);
 	if (drop_rx)
 		return 0;
 
@@ -1876,6 +1894,8 @@ static int msm_geni_serial_handle_dma_rx(struct uart_port *uport, bool drop_rx)
 					__func__, rx_bytes);
 		goto exit_handle_dma_rx;
 	}
+	b1c1_log_rx(uport, "dma", (unsigned char *)msm_port->rx_buf,
+		    rx_bytes, drop_rx);
 	if (drop_rx)
 		goto exit_handle_dma_rx;
 
@@ -2674,6 +2694,13 @@ static void msm_geni_serial_set_termios(struct uart_port *uport,
 exit_set_termios:
 	if (!uart_console(uport) && !port->manual_flow)
 		msm_geni_serial_set_manual_flow(true, port);
+	if (!uart_console(uport)) {	/* TEMP b1c1 */
+		pr_info("b1c1 termios exit manual_flow %d rfr 0x%x xfer %d\n",
+			port->manual_flow,
+			geni_read_reg_nolog(uport->membase, SE_UART_MANUAL_RFR),
+			port->xfer_mode);
+		b1c1_rxlog = 6;
+	}
 
 	msm_geni_serial_start_rx(uport);
 	if (!uart_console(uport))
