@@ -691,17 +691,24 @@ static void msm_geni_serial_set_mctrl(struct uart_port *uport,
 		return;
 	}
 
-	if (device_pending_suspend(uport)) {
-		IPC_LOG_MSG(port->ipc_log_misc,
-			"%s.Device is suspended, %s: mctrl=0x%x\n",
-			 __func__, current->comm, mctrl);
-		return;
-	}
+	/*
+	 * Record the request even when the hardware is off; runtime resume
+	 * applies it. The BT HAL drops its clock vote and then RTS, so the port
+	 * is often still powered with a zero usage count here: write RFR
+	 * whenever the SE is actually active, or the SoC is never held off
+	 * while the HAL switches baud.
+	 */
 	if (!(mctrl & TIOCM_RTS)) {
 		uart_manual_rfr |= (UART_MANUAL_RFR_EN | UART_RFR_NOT_READY);
 		port->manual_flow = true;
 	} else {
 		port->manual_flow = false;
+	}
+	if (!pm_runtime_active(uport->dev)) {
+		IPC_LOG_MSG(port->ipc_log_misc,
+			"%s.Device is suspended, %s: mctrl=0x%x\n",
+			 __func__, current->comm, mctrl);
+		return;
 	}
 	geni_write_reg_nolog(uart_manual_rfr, uport->membase,
 							SE_UART_MANUAL_RFR);
@@ -3532,6 +3539,10 @@ static int msm_geni_serial_runtime_resume(struct device *dev)
 		goto exit_runtime_resume;
 	}
 	start_rx_sequencer(&port->uport);
+	/* Keep the SoC held off if the client turned flow off while we slept */
+	if (!uart_console(&port->uport) && port->manual_flow)
+		geni_write_reg_nolog(UART_MANUAL_RFR_EN | UART_RFR_NOT_READY,
+				     port->uport.membase, SE_UART_MANUAL_RFR);
 	/* Ensure that the Rx is running before enabling interrupts */
 	mb();
 	/* Enable interrupt */
