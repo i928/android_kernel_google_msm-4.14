@@ -107,6 +107,7 @@ struct sde_plane {
 
 	enum sde_sspp pipe;
 	unsigned long features;      /* capabilities from catalog */
+	unsigned int supported_rotations;
 	uint32_t nformats;
 	uint32_t formats[64];
 
@@ -2419,6 +2420,11 @@ static int sde_plane_rot_atomic_check(struct drm_plane *plane,
 			state->rotation,
 			DRM_MODE_ROTATE_0 | DRM_MODE_ROTATE_90 |
 			DRM_MODE_REFLECT_X | DRM_MODE_REFLECT_Y);
+	if (rstate->in_rotation & ~psde->supported_rotations) {
+		SDE_ERROR_PLANE(psde, "unsupported rotation 0x%x\n",
+				rstate->in_rotation);
+		return -EINVAL;
+	}
 	rstate->rot90 = rstate->in_rotation & DRM_MODE_ROTATE_90 ? true : false;
 	rstate->hflip = rstate->in_rotation & DRM_MODE_REFLECT_X ? true : false;
 	rstate->vflip = rstate->in_rotation & DRM_MODE_REFLECT_Y ? true : false;
@@ -2878,6 +2884,7 @@ static void sde_plane_rot_install_properties(struct drm_plane *plane,
 	struct sde_mdss_cfg *catalog)
 {
 	struct sde_plane *psde = to_sde_plane(plane);
+	struct msm_drm_private *priv;
 	unsigned long supported_rotations = DRM_MODE_ROTATE_0 |
 			DRM_MODE_REFLECT_X | DRM_MODE_REFLECT_Y;
 	int ret = 0;
@@ -2894,12 +2901,32 @@ static void sde_plane_rot_install_properties(struct drm_plane *plane,
 		supported_rotations |= DRM_MODE_ROTATE_0 | DRM_MODE_ROTATE_90 |
 				DRM_MODE_ROTATE_180 | DRM_MODE_ROTATE_270;
 
-	ret = drm_plane_create_rotation_property(plane,
-			DRM_MODE_ROTATE_0, supported_rotations);
-	if (ret) {
-		DRM_ERROR("create rotation property failed: %d\n", ret);
-		return;
+	/*
+	 * Create one rotation property and attach it to every plane, like
+	 * msm-4.9 did. The display HAL looks the property id up once and
+	 * uses it on all planes, so per plane properties make every atomic
+	 * commit that touches another plane fail with -ENOENT.
+	 */
+	priv = plane->dev->dev_private;
+	if (!priv->plane_rotation_property) {
+		ret = drm_plane_create_rotation_property(plane,
+				DRM_MODE_ROTATE_0, DRM_MODE_ROTATE_MASK |
+				DRM_MODE_REFLECT_X | DRM_MODE_REFLECT_Y);
+		if (ret) {
+			DRM_ERROR("create rotation property failed: %d\n",
+					ret);
+			return;
+		}
+		priv->plane_rotation_property = plane->rotation_property;
+	} else {
+		drm_object_attach_property(&plane->base,
+				priv->plane_rotation_property,
+				DRM_MODE_ROTATE_0);
+		plane->rotation_property = priv->plane_rotation_property;
+		if (plane->state)
+			plane->state->rotation = DRM_MODE_ROTATE_0;
 	}
+	psde->supported_rotations = supported_rotations;
 
 	if (!(psde->features & BIT(SDE_SSPP_SBUF)) || !catalog->rot_count)
 		return;
