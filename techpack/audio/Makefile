@@ -1,5 +1,9 @@
 # auto-detect subdirs
-ifeq ($(CONFIG_ARCH_SDM845), y)
+ifeq ($(CONFIG_BOARD_B1C1), y)
+# Pixel 3: everything built in (4.9 vendor .ko cannot load) + CS35L36
+include $(srctree)/techpack/audio/config/b1c1auto.conf
+export $(shell sed 's/=.*//' $(srctree)/techpack/audio/config/b1c1auto.conf)
+else ifeq ($(CONFIG_ARCH_SDM845), y)
 include $(srctree)/techpack/audio/config/sdm845auto.conf
 export $(shell sed 's/=.*//' $(srctree)/techpack/audio/config/sdm845auto.conf)
 endif
@@ -42,7 +46,10 @@ LINUXINCLUDE    += \
                 -I$(srctree)/techpack/audio/include/uapi \
                 -I$(srctree)/techpack/audio/include
 
-ifeq ($(CONFIG_ARCH_SDM845), y)
+ifeq ($(CONFIG_BOARD_B1C1), y)
+LINUXINCLUDE    += \
+                -include $(srctree)/techpack/audio/config/b1c1autoconf.h
+else ifeq ($(CONFIG_ARCH_SDM845), y)
 LINUXINCLUDE    += \
                 -include $(srctree)/techpack/audio/config/sdm845autoconf.h
 endif
