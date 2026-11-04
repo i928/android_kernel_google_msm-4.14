@@ -1122,6 +1122,10 @@ uart_tiocmset(struct tty_struct *tty, unsigned int set, unsigned int clear)
 	if (!uport)
 		goto out;
 
+	if (!strncmp(tty->name, "ttyHS", 5))	/* TEMP b1c1 */
+		pr_info("b1c1 tiocmset %s %s set 0x%x clear 0x%x old 0x%x ioerr %d\n",
+			tty->name, current->comm, set, clear, uport->mctrl,
+			tty_io_error(tty));
 	if (!tty_io_error(tty)) {
 		uart_update_mctrl(uport, set, clear);
 		ret = 0;

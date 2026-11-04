@@ -600,6 +600,7 @@ static int vote_clock_off(struct uart_port *uport)
 static int msm_geni_serial_ioctl(struct uart_port *uport, unsigned int cmd,
 						unsigned long arg)
 {
+	pr_info("b1c1 ioctl %s 0x%x\n", current->comm, cmd);	/* TEMP b1c1 */
 	int ret = -ENOIOCTLCMD;
 
 	switch (cmd) {
@@ -685,6 +686,12 @@ static void msm_geni_serial_set_mctrl(struct uart_port *uport,
 	u32 uart_manual_rfr = 0;
 	struct msm_geni_serial_port *port = GET_DEV_PORT(uport);
 
+	if (!uart_console(uport))	/* TEMP b1c1 */
+		pr_info("b1c1 mctrl-in %s 0x%x susp %d usage %d ioctl %d\n",
+			current->comm, mctrl,
+			pm_runtime_status_suspended(uport->dev),
+			atomic_read(&uport->dev->power.usage_count),
+			port->ioctl_count);
 	if (port->uart_ssr.is_ssr_down) {
 		IPC_LOG_MSG(port->ipc_log_misc, "%s: SSR Down event set\n",
 			__func__);
@@ -3517,6 +3524,10 @@ static int msm_geni_serial_runtime_suspend(struct device *dev)
 	 * Disable Interrupt
 	 * Resources off
 	 */
+	if (!uart_console(&port->uport))	/* TEMP b1c1 */
+		pr_info("b1c1 rpm suspend rfr 0x%x\n",
+			geni_read_reg_nolog(port->uport.membase,
+					    SE_UART_MANUAL_RFR));
 	stop_rx_sequencer(&port->uport);
 	geni_status = geni_read_reg_nolog(port->uport.membase, SE_GENI_STATUS);
 	if ((geni_status & M_GENI_CMD_ACTIVE))
@@ -3569,6 +3580,11 @@ static int msm_geni_serial_runtime_resume(struct device *dev)
 	mb();
 	/* Enable interrupt */
 	enable_irq(port->uport.irq);
+	if (!uart_console(&port->uport))	/* TEMP b1c1 */
+		pr_info("b1c1 rpm resume rfr 0x%x manual %d\n",
+			geni_read_reg_nolog(port->uport.membase,
+					    SE_UART_MANUAL_RFR),
+			port->manual_flow);
 	IPC_LOG_MSG(port->ipc_log_pwr, "%s:\n", __func__);
 exit_runtime_resume:
 	return ret;
