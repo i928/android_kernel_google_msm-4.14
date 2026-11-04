@@ -2661,6 +2661,13 @@ long tty_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 		tty_warn_deprecated_flags(p);
 		break;
 	case TIOCGPTPEER:
+		/*
+		 * Only ptys have a peer. On other ttys pass 0x5441 down to the
+		 * driver: it is the pre-4.13 TIOCPMGET that msm_geni_serial
+		 * clients built for 4.9 (the QTI BT HAL) still send.
+		 */
+		if (tty->driver->type != TTY_DRIVER_TYPE_PTY)
+			break;
 		/* Special because the struct file is needed */
 		return ptm_open_peer(file, tty, (int)arg);
 	default:
