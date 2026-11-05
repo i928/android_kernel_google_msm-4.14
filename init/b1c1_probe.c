@@ -470,17 +470,18 @@ static int b1c1_save_thread(void *unused)
 
 	msleep(8000);
 	for (;;) {
-		if (++n == 2)
+		/* 1 s ticks; same 13/23/28/53 s milestones as the 5 s loop */
+		if (++n == 6)
 			kthread_run(b1c1_drm_thread, NULL, "b1c1_drm");
-		if (n == 4 || n == 10)
+		if (n == 16 || n == 46)
 			b1c1_dump_sde_irq();
-		if (n == 5) {
+		if (n == 21) {
 			extern void b1c1_dump_deferred(void);
 
 			b1c1_dump_deferred();
 		}
 		b1c1_save_locked();
-		msleep(5000);
+		msleep(1000);
 	}
 	return 0;
 }
@@ -495,6 +496,8 @@ early_initcall(b1c1_log_init);
 
 static int b1c1_panic(struct notifier_block *nb, unsigned long ev, void *msg)
 {
+	/* TEMP: a panic lands in fastboot, a hard hang stays on the logo */
+	machine_restart("bootloader");
 	return NOTIFY_DONE;
 }
 
