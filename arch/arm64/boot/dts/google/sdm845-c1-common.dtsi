@@ -30,11 +30,11 @@
 };
 
 /* This overylay is required in order for acdbloader to load different files */
-&soc {
-	sound-tavil {
-		qcom,model = "sdm845-tavil-c1-snd-card";
-	};
+&snd_934x {
+	qcom,model = "sdm845-tavil-c1-snd-card";
+};
 
+&soc {
 	msm_cirrus_playback {
 		/* the resistance is 7.8698 ohm */
 		cirrus,top-speaker-mean = <11007>;
