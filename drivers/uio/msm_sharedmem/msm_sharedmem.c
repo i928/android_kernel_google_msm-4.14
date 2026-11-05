@@ -22,6 +22,8 @@
 
 #include <soc/qcom/secure_buffer.h>
 
+#include "sharedmem_qmi.h"
+
 #define CLIENT_ID_PROP "qcom,client-id"
 #define MPSS_RMTS_CLIENT_ID 1
 
@@ -207,6 +209,20 @@ static int msm_sharedmem_probe(struct platform_device *pdev)
 		goto out;
 	}
 	dev_set_drvdata(&pdev->dev, info);
+
+	/* 4.9 RFSA service: the SDM845 modem asks it for the rmtfs address */
+	if (IS_ENABLED(CONFIG_BOARD_B1C1)) {
+		struct sharemem_qmi_entry qmi_entry = {
+			.client_id = client_id,
+			.client_name = info->name,
+			.address = info->mem[0].addr,
+			.size = info->mem[0].size,
+			.is_addr_dynamic = is_addr_dynamic,
+		};
+
+		sharedmem_qmi_add_entry(&qmi_entry);
+		sharedmem_qmi_init();
+	}
 
 	pr_info("Device created for client '%s'\n", clnt_res->name);
 out:
