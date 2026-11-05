@@ -1504,31 +1504,58 @@
 	};
 
 	pil_modem: qcom,mss@4080000 {
-		compatible = "qcom,pil-tz-generic";
-		reg = <0x4080000 0x100>;
+		/*
+		 * The SDM845 modem self-authenticates through the MBA
+		 * (pil-q6v55-mss), as on 4.9. TZ PAS init (pil-tz-generic,
+		 * pas-id 4) is refused on this platform, scm 0x42000201.
+		 */
+		compatible = "qcom,pil-q6v55-mss";
+		reg = <0x4080000 0x100>,
+		      <0x1f63000 0x008>,
+		      <0x1f65000 0x008>,
+		      <0x1f64000 0x008>,
+		      <0x4180000 0x020>,
+		      <0xc2b0000 0x004>,
+		      <0xb2e0100 0x004>,
+		      <0x4180044 0x004>;
+		reg-names = "qdsp6_base", "halt_q6", "halt_modem",
+			    "halt_nc", "rmb_base", "restart_reg",
+			    "pdc_sync", "alt_reset";
 
-		clocks = <&clock_rpmh RPMH_CXO_CLK>;
-		clock-names = "xo";
-		qcom,proxy-clock-names = "xo";
+		clocks = <&clock_rpmh RPMH_CXO_CLK>,
+			 <&clock_gcc GCC_MSS_CFG_AHB_CLK>,
+			 <&clock_gcc GCC_MSS_Q6_MEMNOC_AXI_CLK>,
+			 <&clock_gcc GCC_BOOT_ROM_AHB_CLK>,
+			 <&clock_gcc GCC_MSS_GPLL0_DIV_CLK_SRC>,
+			 <&clock_gcc GCC_MSS_SNOC_AXI_CLK>,
+			 <&clock_gcc GCC_MSS_MFAB_AXIS_CLK>,
+			 <&clock_gcc GCC_PRNG_AHB_CLK>;
+		clock-names = "xo", "iface_clk", "bus_clk",
+			      "mem_clk", "gpll0_mss_clk", "snoc_axi_clk",
+			      "mnoc_axi_clk", "prng_clk";
+		qcom,proxy-clock-names = "xo", "prng_clk";
+		qcom,active-clock-names = "iface_clk", "bus_clk", "mem_clk",
+					  "gpll0_mss_clk", "snoc_axi_clk",
+					  "mnoc_axi_clk";
 
 		vdd_cx-supply = <&pm8998_s9_level>;
-		qcom,vdd_cx-uV-uA = <RPMH_REGULATOR_LEVEL_TURBO 100000>;
+		vdd_cx-voltage = <RPMH_REGULATOR_LEVEL_TURBO>;
 		vdd_mx-supply = <&pm8998_s6_level>;
-		qcom,vdd_mx-uV-uA = <RPMH_REGULATOR_LEVEL_TURBO 100000>;
+		vdd_mx-uV = <RPMH_REGULATOR_LEVEL_TURBO>;
 		vdd_mss-supply = <&pm8005_s2_level>;
-		qcom,vdd_mss-uV-uA = <RPMH_REGULATOR_LEVEL_TURBO 100000>;
-		qcom,proxy-reg-names = "vdd_cx", "vdd_mx", "vdd_mss";
-
+		vdd_mss-uV = <RPMH_REGULATOR_LEVEL_TURBO>;
 		qcom,firmware-name = "modem";
-		qcom,proxy-timeout-ms = <10000>;
+		qcom,pil-self-auth;
 		qcom,sysmon-id = <0>;
 		qcom,minidump-id = <3>;
-		qcom,aux-minidump-ids = <4>;
 		qcom,ssctl-instance-id = <0x12>;
-		qcom,pas-id = <4>;
-		qcom,smem-id = <421>;
+		qcom,override-acc;
 		qcom,signal-aop;
+		qcom,qdsp6v65-1-0;
+		qcom,mss_pdc_offset = <8>;
+		status = "ok";
 		memory-region = <&pil_modem_mem>;
+		qcom,mem-protect-id = <0xF>;
 
 		/* GPIO inputs from mss */
 		interrupts-extended = <&pdc 0 266 1>,
@@ -1551,6 +1578,10 @@
 
 		mboxes = <&qmp_aop 0>;
 		mbox-names = "mss-pil";
+		qcom,mba-mem@0 {
+			compatible = "qcom,pil-mba-mem";
+			memory-region = <&pil_mba_mem>;
+		};
 	};
 
 	qcom,lpass@17300000 {
