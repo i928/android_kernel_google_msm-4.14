@@ -12,6 +12,19 @@
 /* Modem smem channel */
 #define SMEM_ID_VENDOR0		134
 
+#ifdef CONFIG_BOARD_B1C1
+/* b1c1 modem firmware expects the 32-byte msm-4.9 layout */
+struct modem_smem_type {
+	uint32_t	version;
+	uint32_t	modem_flag;
+	uint32_t	major_id;
+	uint32_t	minor_id;
+	uint32_t	subtype;
+	uint32_t	platform;
+	uint32_t	efs_magic;
+	uint32_t	ftm_magic;
+};
+#else
 struct modem_smem_type {
 	uint32_t	version;
 	uint32_t	reserved_1;
@@ -26,6 +39,7 @@ struct modem_smem_type {
 	uint32_t	dsds_magic;
 	uint32_t	reserved_3[5];
 };
+#endif
 
 #define modem_smem_addr(smem, field) \
 	({ \
