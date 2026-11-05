@@ -8340,7 +8340,14 @@ static int msm_dai_q6_tdm_prepare(struct snd_pcm_substream *substream,
 					dev_err(dai->dev,
 					"%s: fail to enable AFE group 0x%x\n",
 					__func__, group_id);
-					goto rtn;
+					/*
+					 * b1c1: the 4.9-era ADSP rejects the
+					 * QUAT RX group config; start the port
+					 * on its own as a single-port group.
+					 */
+					if (!IS_ENABLED(CONFIG_BOARD_B1C1))
+						goto rtn;
+					rc = 0;
 				}
 			}
 		}
