@@ -203,6 +203,28 @@ void panic(const char *fmt, ...)
 	int state = 0;
 	int old_cpu, this_cpu;
 	bool _crash_kexec_post_notifiers = crash_kexec_post_notifiers;
+#ifdef CONFIG_BOARD_B1C1
+	static atomic_t b1c1_seen = ATOMIC_INIT(0);
+
+	/*
+	 * TEMP: no pstore on this phone. Print the reason, then keep the
+	 * system alive (or at least wait 3 s) so the 1 s /metadata log
+	 * saver records it.
+	 */
+	if (!atomic_xchg(&b1c1_seen, 1)) {
+		va_start(args, fmt);
+		vsnprintf(buf, sizeof(buf), fmt, args);
+		va_end(args);
+		pr_emerg("b1c1 PANIC HELD: %s\n", buf);
+		dump_stack();
+		if (!in_interrupt() && !irqs_disabled() && !in_atomic()) {
+			pr_emerg("b1c1 PANIC: task parked\n");
+			for (;;)
+				msleep(1000);
+		}
+		mdelay(3000);
+	}
+#endif
 
 	if (panic_on_warn) {
 		/*
