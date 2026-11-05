@@ -998,7 +998,10 @@ int32_t cam_sensor_driver_cmd(struct cam_sensor_ctrl_t *s_ctrl,
 				CAM_SENSOR_PACKET_OPCODE_SENSOR_INITIAL_CONFIG);
 			if (rc < 0) {
 				CAM_ERR(CAM_SENSOR,
-					"cannot apply init settings");
+					"cannot apply init settings (TEMP b1c1: slot %d slave 0x%x master %d)",
+					s_ctrl->soc_info.index,
+					s_ctrl->sensordata->slave_info.sensor_slave_addr,
+					s_ctrl->cci_i2c_master);
 				goto release_mutex;
 			}
 			rc = delete_request(&s_ctrl->i2c_data.init_settings);

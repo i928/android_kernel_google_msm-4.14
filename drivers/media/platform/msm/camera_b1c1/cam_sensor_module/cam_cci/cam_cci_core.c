@@ -10,6 +10,8 @@
  * GNU General Public License for more details.
  */
 
+/* TEMP b1c1: dump CCI registers on timeouts */
+#define DUMP_CCI_REGISTERS
 #include <linux/module.h>
 #include "cam_cci_core.h"
 #include "cam_cci_dev.h"

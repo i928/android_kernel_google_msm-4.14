@@ -57,6 +57,22 @@ static void log_modem_sfr(struct modem_data *drv)
 	 */
 	if (IS_ERR(smem_reason) || !size)
 		smem_reason = qcom_smem_get(1, drv->q6->smem_id, &size);
+	/* TEMP b1c1: show why the SFR lookup fails, per host */
+	if (IS_ERR(smem_reason) || !size) {
+		unsigned int h;
+
+		for (h = 0; h < 10; h++) {
+			void *p = qcom_smem_get(h, drv->q6->smem_id, &size);
+
+			pr_err("b1c1 SFR host %u item %d: %ld size %zu\n", h,
+			       drv->q6->smem_id, IS_ERR(p) ? PTR_ERR(p) : 0L,
+			       IS_ERR(p) ? 0 : size);
+			if (!IS_ERR(p) && size) {
+				smem_reason = p;
+				break;
+			}
+		}
+	}
 	if (IS_ERR(smem_reason) || !size) {
 		pr_err("modem SFR: (unknown, qcom_smem_get failed).\n");
 		return;
