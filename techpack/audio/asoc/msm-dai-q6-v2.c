@@ -8292,7 +8292,9 @@ static int msm_dai_q6_tdm_prepare(struct snd_pcm_substream *substream,
 	group_ref = &tdm_group_ref[group_idx];
 
 	if (!test_bit(STATUS_PORT_STARTED, dai_data->status_mask)) {
-		if (q6core_get_avcs_api_version_per_service(
+		/* b1c1: the 4.9 ADSP stack never sent island config on TDM */
+		if (!IS_ENABLED(CONFIG_BOARD_B1C1) &&
+		    q6core_get_avcs_api_version_per_service(
 		APRV2_IDS_SERVICE_ID_ADSP_AFE_V) >= AFE_API_VERSION_V4) {
 			/*
 			 * send island mode config.
@@ -8304,7 +8306,13 @@ static int msm_dai_q6_tdm_prepare(struct snd_pcm_substream *substream,
 					__func__, rc);
 		}
 
-		if (msm_dai_q6_get_tdm_clk_ref(group_idx) == 0) {
+		/*
+		 * b1c1: vote the clock per group like 4.9 (the DSP counts
+		 * votes), so QUAT RX still votes after the TX feedback port.
+		 */
+		if ((IS_ENABLED(CONFIG_BOARD_B1C1) ?
+		     atomic_read(group_ref) :
+		     msm_dai_q6_get_tdm_clk_ref(group_idx)) == 0) {
 			/* TX and RX share the same clk. So enable the clk
 			 * per TDM interface. */
 			rc = msm_dai_q6_tdm_set_clk(dai_data,
@@ -8344,7 +8352,9 @@ static int msm_dai_q6_tdm_prepare(struct snd_pcm_substream *substream,
 				afe_port_group_enable(group_id,
 					NULL, false);
 			}
-			if (msm_dai_q6_get_tdm_clk_ref(group_idx) == 0) {
+			if ((IS_ENABLED(CONFIG_BOARD_B1C1) ?
+			     atomic_read(group_ref) :
+			     msm_dai_q6_get_tdm_clk_ref(group_idx)) == 0) {
 				msm_dai_q6_tdm_set_clk(dai_data,
 					dai->id, false);
 			}
@@ -8406,7 +8416,9 @@ static void msm_dai_q6_tdm_shutdown(struct snd_pcm_substream *substream,
 			}
 		}
 
-		if (msm_dai_q6_get_tdm_clk_ref(group_idx) == 0) {
+		if ((IS_ENABLED(CONFIG_BOARD_B1C1) ?
+		     atomic_read(group_ref) :
+		     msm_dai_q6_get_tdm_clk_ref(group_idx)) == 0) {
 			rc = msm_dai_q6_tdm_set_clk(dai_data,
 				dai->id, false);
 			if (rc < 0) {
