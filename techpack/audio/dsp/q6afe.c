@@ -5392,6 +5392,19 @@ int afe_port_group_set_param(u16 group_id,
 	param_hdr.instance_id = INSTANCE_ID_0;
 	param_hdr.param_id = cfg_type;
 	param_hdr.param_size = sizeof(union afe_port_group_config);
+	/* TEMP b1c1: dump the TDM group cfg the ADSP rejects */
+	{
+		struct afe_param_id_group_device_tdm_cfg *t =
+			&afe_group_config->tdm_cfg;
+		pr_info("b1c1 tdm grp 0x%x v%u ports %x %x %x %x %x %x %x %x ch %u rate %u bw %u nslots %u sw %u mask 0x%x size %zu\n",
+			t->group_id, t->group_device_cfg_minor_version,
+			t->port_id[0], t->port_id[1], t->port_id[2],
+			t->port_id[3], t->port_id[4], t->port_id[5],
+			t->port_id[6], t->port_id[7], t->num_channels,
+			t->sample_rate, t->bit_width, t->nslots_per_frame,
+			t->slot_width, t->slot_mask,
+			sizeof(union afe_port_group_config));
+	}
 
 	ret = q6afe_svc_pack_and_set_param_in_band(IDX_GLOBAL_CFG, param_hdr,
 						   (u8 *) afe_group_config);
