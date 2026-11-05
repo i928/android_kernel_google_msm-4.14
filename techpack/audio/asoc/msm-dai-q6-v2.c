@@ -8171,9 +8171,21 @@ static int msm_dai_q6_tdm_hw_params(struct snd_pcm_substream *substream,
 	 */
 	tdm->nslots_per_frame = tdm_group->nslots_per_frame;
 	tdm->slot_width = tdm_group->slot_width;
-	tdm->slot_mask = tdm_param_set_slot_mask(slot_mapping->offset,
+	/*
+	 * b1c1: the 4.9 machine driver programs the group mask for every
+	 * port, as 4.9 did; deriving it from the slot offsets made the
+	 * QUAT TX feedback port disagree with the RX group (ADSP_EBADPARAM).
+	 */
+	tdm->slot_mask = IS_ENABLED(CONFIG_BOARD_B1C1) ? tdm_group->slot_mask :
+		tdm_param_set_slot_mask(slot_mapping->offset,
 				tdm_group->slot_width,
 				tdm_group->nslots_per_frame);
+	/* TEMP b1c1 */
+	pr_info("b1c1 tdm port 0x%x ch %u rate %u bw %u nslots %u sw %u mask 0x%x (offset mask 0x%x)\n",
+		dai->id, tdm->num_channels, tdm->sample_rate, tdm->bit_width,
+		tdm->nslots_per_frame, tdm->slot_width, tdm->slot_mask,
+		tdm_param_set_slot_mask(slot_mapping->offset,
+			tdm_group->slot_width, tdm_group->nslots_per_frame));
 
 	pr_debug("%s: TDM:\n"
 		"num_channels=%d sample_rate=%d bit_width=%d\n"
