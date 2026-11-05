@@ -95,7 +95,11 @@ static ssize_t modem_smem_show(struct device *d,
 			modem_smem->platform,
 			modem_smem->efs_magic,
 			modem_smem->ftm_magic,
+#ifdef CONFIG_BOARD_B1C1
+			0);
+#else
 			modem_smem->dsds_magic);
+#endif
 }
 
 static ssize_t modem_smem_store(struct device *d,
@@ -147,8 +151,8 @@ static int modem_smem_probe(struct platform_device *pdev)
 	int len = 0;
 	u8 buff[8 + 1];
 	u32 val = 0;
-	char *prop = NULL;
-	int prop_size;
+	char *prop __maybe_unused = NULL;
+	int prop_size __maybe_unused;
 
 	pr_debug("[SMEM] %s: Enter probe\n", __func__);
 
@@ -230,6 +234,7 @@ static int modem_smem_probe(struct platform_device *pdev)
 		dev_info(dev, "Set FTM mode due to %s\n", bootmode);
 	}
 
+#ifndef CONFIG_BOARD_B1C1
 	if (dtnp) {
 		prop = (char *) of_get_property(dtnp, "dsds", &prop_size);
 		if (prop && !strncmp(prop, "1", sizeof("1"))) {
@@ -238,6 +243,7 @@ static int modem_smem_probe(struct platform_device *pdev)
 			dev_info(dev, "Set DSDS mode\n");
 		}
 	}
+#endif
 
 	/* Create sysfs */
 	ret = sysfs_create_group(&pdev->dev.kobj, &modem_smem_group);
