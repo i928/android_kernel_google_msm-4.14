@@ -5,7 +5,11 @@
 obj-y += sde/
 obj-$(CONFIG_MSM_NPU) += npu/
 obj-$(CONFIG_MSM_NPU_V2) += npu_v2/
+ifeq ($(CONFIG_BOARD_B1C1),y)
+obj-$(CONFIG_MSM_VIDC_V4L2) += vidc_b1c1/
+else
 obj-$(CONFIG_MSM_VIDC_V4L2) += vidc/
+endif
 obj-$(CONFIG_MSM_VIDC_3X_V4L2) += vidc_3x/
 ifeq ($(CONFIG_BOARD_SUNFISH),y)
 obj-$(CONFIG_SPECTRA_CAMERA) += camera/
