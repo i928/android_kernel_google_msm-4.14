@@ -2829,8 +2829,11 @@ void qdf_trace_msg_cmn(unsigned int idx,
 	 * the desired category for the print control object
 	 */
 	/* TEMP b1c1: always print fatal/error/warn while bringing up wlan */
+	/* only the B1C1_QDF_TRACE objects reach here; add INFO, SCAN DEBUG */
 	if ((verbose >= QDF_TRACE_LEVEL_FATAL &&
-	     verbose <= QDF_TRACE_LEVEL_WARN) ||
+	     verbose <= QDF_TRACE_LEVEL_INFO_LOW) ||
+	    (category == QDF_MODULE_ID_SCAN &&
+	     verbose == QDF_TRACE_LEVEL_DEBUG) ||
 	    (print_ctrl_obj[idx].cat_info[category].category_verbose_mask &
 	     QDF_TRACE_LEVEL_TO_MODULE_BITMASK(verbose))) {
 		static const char * const VERBOSE_STR[] = {
