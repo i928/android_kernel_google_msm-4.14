@@ -45,7 +45,8 @@
  * This allows us to build 'performance' builds where we can measure performance
  * without being bogged down by all the tracing in the code
  */
-#if defined(WLAN_DEBUG) || defined(DEBUG)
+/* TEMP b1c1: QDF_TRACE on without the rest of WLAN_DEBUG */
+#if defined(WLAN_DEBUG) || defined(DEBUG) || defined(CONFIG_BOARD_B1C1)
 #define QDF_TRACE qdf_trace_msg
 #define QDF_VTRACE qdf_vtrace_msg
 #define QDF_TRACE_HEX_DUMP qdf_trace_hex_dump
