@@ -1705,6 +1705,18 @@ int cam_sensor_core_power_up(struct cam_sensor_power_ctrl_t *ctrl,
 		else if (power_setting->delay)
 			usleep_range(power_setting->delay * 1000,
 				(power_setting->delay * 1000) + 1000);
+#ifdef CONFIG_BOARD_B1C1
+		/*
+		 * The HAL gives the second front IMX355 (slot 2) no delay after
+		 * XCLR release. An I2C access ~1 ms later is NACKed and the
+		 * sensor stays wedged until it is power-cycled, which fails the
+		 * dual-front session. Enforce a minimum settle time.
+		 */
+		if (power_setting->seq_type == SENSOR_RESET &&
+			power_setting->config_val &&
+			power_setting->delay < 5)
+			usleep_range(5000, 6000);
+#endif
 	}
 
 	ret = cam_res_mgr_shared_pinctrl_post_init();
