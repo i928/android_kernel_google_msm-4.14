@@ -36,6 +36,10 @@ ifeq ($(KERNEL_BUILD),1)
 	WLAN_COMMON_INC := $(WLAN_ROOT)/$(WLAN_COMMON_ROOT)
 endif
 
+# msm-4.14 builds with UBSAN bounds traps; the msm-4.9 driver was never
+# built that way and still has array-row arithmetic that trips them.
+UBSAN_SANITIZE := n
+
 # Make WLAN as open-source driver by default
 WLAN_OPEN_SOURCE := 1
 

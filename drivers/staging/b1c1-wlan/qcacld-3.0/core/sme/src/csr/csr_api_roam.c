@@ -6509,7 +6509,8 @@ static QDF_STATUS csr_roam_save_params(tpAniSirGlobal mac_ctx,
 				+ (rsnie->akm_suite_cnt * 4);
 			if (rsnie->pmkid_count)
 				/* pmkid */
-				nIeLen += 2 + rsnie->pmkid_count * 4;
+				nIeLen += 2 + rsnie->pmkid_count *
+					  sizeof(rsnie->pmkid[0]);
 
 			/* nIeLen doesn't count EID and length fields */
 			session_ptr->pWpaRsnRspIE = qdf_mem_malloc(nIeLen + 2);
@@ -6544,9 +6545,21 @@ static QDF_STATUS csr_roam_save_params(tpAniSirGlobal mac_ctx,
 				pIeBuf += rsnie->akm_suite_cnt * 4;
 			}
 			/* copy the rest */
-			qdf_mem_copy(pIeBuf, rsnie->akm_suite +
-				rsnie->akm_suite_cnt * 4,
-				2 + rsnie->pmkid_count * 4);
+			/*
+			 * RSN capabilities, then the PMKID list. The old
+			 * "akm_suite + akm_suite_cnt * 4" walked rows of the
+			 * [6][4] array, i.e. past its end (UBSAN bounds trap).
+			 */
+			qdf_mem_copy(pIeBuf, rsnie->RSN_Cap,
+				     sizeof(rsnie->RSN_Cap));
+			pIeBuf += sizeof(rsnie->RSN_Cap);
+			if (rsnie->pmkid_count) {
+				qdf_mem_copy(pIeBuf, &rsnie->pmkid_count, 2);
+				pIeBuf += 2;
+				qdf_mem_copy(pIeBuf, rsnie->pmkid,
+					     rsnie->pmkid_count *
+					     sizeof(rsnie->pmkid[0]));
+			}
 			session_ptr->nWpaRsnRspIeLength = nIeLen + 2;
 		}
 	} else if ((eCSR_AUTH_TYPE_WPA == auth_type) ||
