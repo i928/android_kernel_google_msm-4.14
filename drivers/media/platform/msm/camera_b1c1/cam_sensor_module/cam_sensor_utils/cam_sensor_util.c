@@ -1612,6 +1612,22 @@ int cam_sensor_core_power_up(struct cam_sensor_power_ctrl_t *ctrl,
 				gpio_num_info->gpio_num
 				[power_setting->seq_type]);
 
+#ifdef CONFIG_BOARD_B1C1
+			/*
+			 * The HAL releases XCLR right after MCLK with no reset
+			 * pulse. The second front IMX355 (slot 2) intermittently
+			 * comes up NACKing every I2C access and stays wedged for
+			 * the session; a 10 ms low pulse with power and MCLK on
+			 * always revives it, so do that before every release.
+			 */
+			if (power_setting->seq_type == SENSOR_RESET &&
+				power_setting->config_val &&
+				gpio_num_info->valid[SENSOR_RESET]) {
+				cam_res_mgr_gpio_set_value(
+					gpio_num_info->gpio_num[SENSOR_RESET], 0);
+				usleep_range(10000, 11000);
+			}
+#endif
 			rc = msm_cam_sensor_handle_reg_gpio(
 				power_setting->seq_type,
 				gpio_num_info,
@@ -1699,16 +1715,11 @@ int cam_sensor_core_power_up(struct cam_sensor_power_ctrl_t *ctrl,
 			usleep_range(power_setting->delay * 1000,
 				(power_setting->delay * 1000) + 1000);
 #ifdef CONFIG_BOARD_B1C1
-		/*
-		 * The HAL gives the second front IMX355 (slot 2) no delay after
-		 * XCLR release. An I2C access ~1 ms later is NACKed and the
-		 * sensor stays wedged until it is power-cycled, which fails the
-		 * dual-front session. Enforce a minimum settle time.
-		 */
+		/* and give it 10 ms after release before the first access */
 		if (power_setting->seq_type == SENSOR_RESET &&
 			power_setting->config_val &&
-			power_setting->delay < 5)
-			usleep_range(5000, 6000);
+			power_setting->delay < 10)
+			usleep_range(10000, 11000);
 #endif
 	}
 
