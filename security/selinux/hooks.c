@@ -1369,7 +1369,17 @@ static inline u16 socket_type_to_security_class(int family, int type, int protoc
 		case PF_KCM:
 			return SECCLASS_KCM_SOCKET;
 		case PF_QIPCRTR:
+#ifdef CONFIG_BOARD_B1C1
+			/*
+			 * The crosshatch vendor policy was written for msm-4.9's
+			 * AF_MSM_IPC and only grants the generic socket class;
+			 * label QRTR the same way so pm-service, rild, netmgrd
+			 * etc. can open their sockets under enforcing.
+			 */
+			return SECCLASS_SOCKET;
+#else
 			return SECCLASS_QIPCRTR_SOCKET;
+#endif
 		case PF_SMC:
 			return SECCLASS_SMC_SOCKET;
 		case PF_XDP:
