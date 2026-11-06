@@ -234,7 +234,7 @@ struct dentry *msm_vidc_debugfs_init_core(struct msm_vidc_core *core,
 
 	snprintf(debugfs_name, MAX_DEBUGFS_NAME, "core%d", core->id);
 	dir = debugfs_create_dir(debugfs_name, parent);
-	if (!dir) {
+	if (IS_ERR_OR_NULL(dir)) {
 		dprintk(VIDC_ERR, "Failed to create debugfs for msm_vidc\n");
 		goto failed_create_dir;
 	}
@@ -248,7 +248,7 @@ struct dentry *msm_vidc_debugfs_init_core(struct msm_vidc_core *core,
 		goto failed_create_dir;
 	}
 failed_create_dir:
-	return dir;
+	return IS_ERR(dir) ? NULL : dir;
 }
 
 static int inst_info_open(struct inode *inode, struct file *file)
@@ -447,7 +447,7 @@ struct dentry *msm_vidc_debugfs_init_inst(struct msm_vidc_inst *inst,
 	idata->inst = inst;
 
 	dir = debugfs_create_dir(debugfs_name, parent);
-	if (!dir) {
+	if (IS_ERR_OR_NULL(dir)) {
 		dprintk(VIDC_ERR, "Failed to create debugfs for msm_vidc\n");
 		goto failed_create_dir;
 	}
@@ -469,14 +469,15 @@ failed_create_file:
 failed_create_dir:
 	kfree(idata);
 exit:
-	return dir;
+	return IS_ERR(dir) ? NULL : dir;
 }
 
 void msm_vidc_debugfs_deinit_inst(struct msm_vidc_inst *inst)
 {
 	struct dentry *dentry = NULL;
 
-	if (!inst || !inst->debugfs_root)
+	/* 4.14 debugfs returns ERR_PTR(-ENODEV) when it is compiled out */
+	if (!inst || IS_ERR_OR_NULL(inst->debugfs_root))
 		return;
 
 	dentry = inst->debugfs_root;
