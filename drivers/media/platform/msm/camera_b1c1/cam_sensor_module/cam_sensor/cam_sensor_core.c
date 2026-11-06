@@ -12,6 +12,9 @@
  */
 
 #include <linux/module.h>
+#include <linux/clk.h>
+#include <linux/clk-provider.h>
+#include <linux/regulator/consumer.h>
 #include <cam_sensor_cmn_header.h>
 #include "cam_sensor_core.h"
 #include "cam_sensor_util.h"
@@ -1006,6 +1009,36 @@ int32_t cam_sensor_driver_cmd(struct cam_sensor_ctrl_t *s_ctrl,
 					s_ctrl->soc_info.index,
 					s_ctrl->sensordata->slave_info.sensor_slave_addr,
 					r, id);
+				if (r < 0) {
+					static const int waits[] = {2, 10, 50, 200};
+					struct cam_hw_soc_info *si = &s_ctrl->soc_info;
+					int k;
+
+					for (k = 0; k < si->num_clk; k++)
+						pr_err("b1c1 cam slot %d clk %s en %d rate %lu\n",
+							si->index, si->clk_name[k],
+							__clk_is_enabled(si->clk[k]),
+							clk_get_rate(si->clk[k]));
+					for (k = 0; k < si->num_rgltr; k++)
+						if (!IS_ERR_OR_NULL(si->rgltr[k]))
+							pr_err("b1c1 cam slot %d rgltr %s en %d uV %d\n",
+								si->index, si->rgltr_name[k],
+								regulator_is_enabled(si->rgltr[k]),
+								regulator_get_voltage(si->rgltr[k]));
+					for (k = 0; k < ARRAY_SIZE(waits); k++) {
+						msleep(waits[k]);
+						id = 0;
+						r = camera_io_dev_read(
+							&s_ctrl->io_master_info,
+							s_ctrl->sensordata->slave_info.sensor_id_reg_addr,
+							&id, CAMERA_SENSOR_I2C_TYPE_WORD,
+							CAMERA_SENSOR_I2C_TYPE_WORD);
+						pr_err("b1c1 cam slot %d retry +%dms rc %d id 0x%x\n",
+							si->index, waits[k], r, id);
+						if (r >= 0)
+							break;
+					}
+				}
 			}
 
 			rc = cam_sensor_apply_settings(s_ctrl, 0,
