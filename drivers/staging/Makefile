@@ -52,4 +52,9 @@ obj-$(CONFIG_DRM_VBOXVIDEO)	+= vboxvideo/
 obj-$(CONFIG_PI433)		+= pi433/
 obj-$(CONFIG_S2MPG01)		+= s2mpg01/
 obj-$(CONFIG_GOOGLE_WLAN_MAC)	+= wlan_mac/
+ifeq ($(CONFIG_BOARD_B1C1),y)
+# Pixel 3: the msm-4.9 qcacld-3.0 matched to the WCN3990 HL2.0 firmware
+obj-$(CONFIG_QCA_CLD_WLAN)	+= b1c1-wlan/qcacld-3.0/
+else
 obj-$(CONFIG_QCA_CLD_WLAN)	+= qcacld-3.0/
+endif
