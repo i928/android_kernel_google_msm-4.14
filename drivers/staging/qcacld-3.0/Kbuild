@@ -2173,3 +2173,11 @@ OBJS_DIRS := $(dir $(OBJS)) \
 CLEAN_DIRS := $(addsuffix *.o,$(sort $(OBJS_DIRS))) \
 	      $(addsuffix .*.o.cmd,$(sort $(OBJS_DIRS)))
 clean-files := $(CLEAN_DIRS)
+
+# TEMP b1c1: QDF_TRACE logging for the scan / WMI / copy-engine path only
+B1C1_TRACE_OBJS := wlan_hdd_scan wlan_hdd_driver_ops wlan_scan_manager \
+	wlan_scan_main wlan_scan_tgt_api wlan_scan_ucfg_api target_if_scan \
+	wma_scan_roam wma_main wmi_unified wmi_tlv_helper \
+	ce_main ce_service ce_tasklet htc htc_recv hif_main \
+	snoc icnss_stub
+$(foreach o,$(B1C1_TRACE_OBJS),$(eval CFLAGS_$(o).o += -DB1C1_QDF_TRACE))
