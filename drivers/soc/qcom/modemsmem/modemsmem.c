@@ -194,6 +194,23 @@ static int modem_smem_probe(struct platform_device *pdev)
 	/* Setup modem SMEM parameters */
 	modem_smem_set_u32(modem_smem, version, MODEM_SMEM_VERSION);
 
+#ifdef CONFIG_BOARD_B1C1
+	/*
+	 * The Pixel 3 bootloader leaves the socinfo v0.15 g_* platform
+	 * fields at 0; the modem picks its RF config from these, and with
+	 * zeros it stays OFFLINE. msm-4.9 passed the regular platform info.
+	 */
+	modem_smem_set_u32(modem_smem, major_id,
+		(socinfo_get_platform_version() >> 16) & 0xff);
+
+	modem_smem_set_u32(modem_smem, minor_id,
+		socinfo_get_platform_version() & 0x00ff);
+
+	modem_smem_set_u32(modem_smem, platform, socinfo_get_platform_type());
+
+	modem_smem_set_u32(modem_smem, subtype,
+		socinfo_get_platform_subtype());
+#else
 	modem_smem_set_u32(modem_smem, major_id,
 		(socinfo_get_g_platform_version() >> 16) & 0xff);
 
@@ -204,6 +221,7 @@ static int modem_smem_probe(struct platform_device *pdev)
 
 	modem_smem_set_u32(modem_smem, subtype,
 		socinfo_get_g_platform_subtype());
+#endif
 
 	do {
 		dtnp = of_find_node_by_path(DEVICE_TREE_CDT_CDB2_PATH);
