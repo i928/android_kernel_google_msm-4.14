@@ -45,8 +45,42 @@
  * This allows us to build 'performance' builds where we can measure performance
  * without being bogged down by all the tracing in the code
  */
-/* TEMP b1c1: QDF_TRACE on for the files Kbuild marks B1C1_QDF_TRACE */
-#if defined(WLAN_DEBUG) || defined(DEBUG) || defined(B1C1_QDF_TRACE)
+#if defined(B1C1_QDF_TRACE)
+/*
+ * TEMP b1c1: qdf_trace.c is compiled out on this tree, so send QDF_TRACE
+ * from the files Kbuild marks B1C1_QDF_TRACE straight to printk.
+ * Levels up to INFO_LOW, plus DEBUG for the scan module.
+ */
+static inline __printf(3, 4) void b1c1_qdf_log(int module, int level,
+					       const char *fmt, ...)
+{
+	struct va_format vaf;
+	va_list args;
+
+	if (level > QDF_TRACE_LEVEL_INFO_LOW &&
+	    !(module == QDF_MODULE_ID_SCAN && level == QDF_TRACE_LEVEL_DEBUG))
+		return;
+	va_start(args, fmt);
+	vaf.fmt = fmt;
+	vaf.va = &args;
+	printk(KERN_ERR "wlan: [%d:%d] %pV\n", module, level, &vaf);
+	va_end(args);
+}
+#define QDF_TRACE(module, level, fmt...) b1c1_qdf_log(module, level, fmt)
+#define QDF_VTRACE qdf_vtrace_msg
+#define QDF_TRACE_HEX_DUMP qdf_trace_hex_dump
+#define QDF_MAX_LOGS_PER_SEC 2
+#define __QDF_TRACE_RATE_LIMITED(params...)\
+	do {\
+		static ulong __last_ticks;\
+		ulong __ticks = jiffies;\
+		if (time_after(__ticks,\
+			       __last_ticks + HZ / QDF_MAX_LOGS_PER_SEC)) {\
+			QDF_TRACE(params);\
+			__last_ticks = __ticks;\
+		} \
+	} while (0)
+#elif defined(WLAN_DEBUG) || defined(DEBUG)
 #define QDF_TRACE qdf_trace_msg
 #define QDF_VTRACE qdf_vtrace_msg
 #define QDF_TRACE_HEX_DUMP qdf_trace_hex_dump
