@@ -13,6 +13,7 @@
 
 #include <linux/module.h>
 #include <linux/clk.h>
+#include <linux/gpio.h>
 #include <linux/clk-provider.h>
 #include <linux/regulator/consumer.h>
 #include <cam_sensor_cmn_header.h>
@@ -1037,6 +1038,36 @@ int32_t cam_sensor_driver_cmd(struct cam_sensor_ctrl_t *s_ctrl,
 							si->index, waits[k], r, id);
 						if (r >= 0)
 							break;
+					}
+					/* TEMP b1c1: does a reset / VANA pulse revive it? */
+					{
+						struct msm_camera_gpio_num_info *g =
+							s_ctrl->sensordata->power_info.gpio_num_info;
+						int step;
+
+						for (step = 0; g && r < 0 && step < 2; step++) {
+							if (step == 1 && g->valid[SENSOR_VANA])
+								gpio_set_value(g->gpio_num[SENSOR_VANA], 0);
+							if (g->valid[SENSOR_RESET])
+								gpio_set_value(g->gpio_num[SENSOR_RESET], 0);
+							msleep(step ? 50 : 10);
+							if (step == 1 && g->valid[SENSOR_VANA]) {
+								gpio_set_value(g->gpio_num[SENSOR_VANA], 1);
+								msleep(5);
+							}
+							if (g->valid[SENSOR_RESET])
+								gpio_set_value(g->gpio_num[SENSOR_RESET], 1);
+							msleep(10);
+							id = 0;
+							r = camera_io_dev_read(
+								&s_ctrl->io_master_info,
+								s_ctrl->sensordata->slave_info.sensor_id_reg_addr,
+								&id, CAMERA_SENSOR_I2C_TYPE_WORD,
+								CAMERA_SENSOR_I2C_TYPE_WORD);
+							pr_err("b1c1 cam slot %d after %s pulse rc %d id 0x%x\n",
+								si->index, step ? "vana+reset" : "reset",
+								r, id);
+						}
 					}
 				}
 			}
