@@ -812,6 +812,15 @@ static irqreturn_t gsi_isr(int irq, void *ctxt)
 			gsi_ctx->per.rel_clk_cb(gsi_ctx->per.user_data);
 		}
 	} else if (!gsi_ctx->per.clk_status_cb()) {
+#ifdef CONFIG_BOARD_B1C1
+		/*
+		 * IPA 3.5.1 on the Pixel 3 sees GSI interrupts while the IPA
+		 * clocks are off once the modem data path is up. msm-4.9
+		 * ignores them; the IPA4 debug counter below asserts after
+		 * five, since boot, and takes the phone down.
+		 */
+		return IRQ_HANDLED;
+#endif
 	/* we only want to capture the gsi isr storm here */
 		if (atomic_read(&gsi_ctx->num_unclock_irq) ==
 			GSI_IRQ_STORM_THR)
