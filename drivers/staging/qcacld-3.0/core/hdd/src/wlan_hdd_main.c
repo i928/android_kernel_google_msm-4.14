@@ -8522,6 +8522,7 @@ void wlan_hdd_display_tx_rx_histogram(struct hdd_context *hdd_ctx)
 	hdd_debug("[index][timestamp]: interval_rx, interval_tx, bus_bw_level, RX TP Level, TX TP Level");
 
 #ifdef WLAN_DEBUG
+	{
 	int i;
 	for (i = 0; i < NUM_TX_RX_HISTOGRAM; i++) {
 		/* using hdd_log to avoid printing function name */
@@ -8539,6 +8540,7 @@ void wlan_hdd_display_tx_rx_histogram(struct hdd_context *hdd_ctx)
 				  convert_level_to_string(
 					hdd_ctx->hdd_txrx_hist[i].
 						next_tx_level));
+	}
 	}
 #endif
 }
