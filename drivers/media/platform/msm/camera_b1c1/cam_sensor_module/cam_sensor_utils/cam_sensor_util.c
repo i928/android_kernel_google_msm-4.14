@@ -1693,6 +1693,13 @@ int cam_sensor_core_power_up(struct cam_sensor_power_ctrl_t *ctrl,
 				power_setting->seq_type);
 			break;
 		}
+		/* TEMP b1c1: trace front sensor power-up */
+		if (soc_info->index == 1 || soc_info->index == 2)
+			pr_err("b1c1 cam pwrup slot %d step %d type %d val %d cfg %ld delay %d rc %d\n",
+				soc_info->index, index, power_setting->seq_type,
+				power_setting->seq_val,
+				power_setting->config_val,
+				power_setting->delay, rc);
 		if (power_setting->delay > 20)
 			msleep(power_setting->delay);
 		else if (power_setting->delay)
@@ -1705,9 +1712,23 @@ int cam_sensor_core_power_up(struct cam_sensor_power_ctrl_t *ctrl,
 		CAM_ERR(CAM_SENSOR,
 			"Failed to post init shared pinctrl");
 
+	/* TEMP b1c1: GPIO levels after front sensor power-up */
+	if ((soc_info->index == 1 || soc_info->index == 2) && gpio_num_info) {
+		for (i = 0; i < SENSOR_SEQ_TYPE_MAX; i++)
+			if (gpio_num_info->valid[i])
+				pr_err("b1c1 cam pwrup slot %d seq %d gpio %d = %d\n",
+					soc_info->index, i,
+					gpio_num_info->gpio_num[i],
+					gpio_get_value(gpio_num_info->gpio_num[i]));
+		pr_err("b1c1 cam pwrup slot %d gpio15 = %d no_gpio %d pinctrl %d\n",
+			soc_info->index, gpio_get_value(15), no_gpio,
+			ctrl->cam_pinctrl_status);
+	}
+
 	return 0;
 power_up_failed:
-	CAM_ERR(CAM_SENSOR, "failed");
+	CAM_ERR(CAM_SENSOR, "failed (TEMP b1c1: slot %d index %d rc %d)",
+		soc_info->index, index, rc);
 	for (index--; index >= 0; index--) {
 		CAM_DBG(CAM_SENSOR, "index %d",  index);
 		power_setting = &ctrl->power_setting[index];
