@@ -367,6 +367,10 @@ int ipa3_odl_pipe_open(void)
 	int ret = 0;
 	struct ipa_ep_cfg_holb holb_cfg;
 
+	/* ODL is only set up on IPA v4.x; nothing to open on older HW */
+	if (!ipa3_odl_ctx)
+		return 0;
+
 	if (!ipa3_odl_ctx->odl_state.adpl_open) {
 		IPAERR("adpl pipe not configured\n");
 		return 0;
@@ -470,6 +474,9 @@ void ipa3_odl_pipe_cleanup(bool is_ssr)
 {
 	bool ipa_odl_opened = false;
 	struct ipa_ep_cfg_holb holb_cfg;
+
+	if (!ipa3_odl_ctx)
+		return;
 
 	if (!ipa3_odl_ctx->odl_state.adpl_open) {
 		IPAERR("adpl pipe not configured\n");
