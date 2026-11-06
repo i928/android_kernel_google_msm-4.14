@@ -654,6 +654,16 @@ static int32_t cam_cci_data_queue(struct cci_device *cci_dev,
 	CAM_DBG(CAM_CCI, "addr type %d data type %d cmd_size %d",
 		i2c_msg->addr_type, i2c_msg->data_type, cmd_size);
 
+	/* TEMP b1c1: trace master-1 writes */
+	if (master == MASTER_1)
+		pr_err("b1c1 cci m1 q%d sid 0x%x freq %d/%d addr_t %d data_t %d n %d first 0x%x=0x%x retries %d\n",
+			queue, c_ctrl->cci_info->sid,
+			c_ctrl->cci_info->i2c_freq_mode,
+			cci_dev->i2c_freq_mode[master],
+			i2c_msg->addr_type, i2c_msg->data_type, cmd_size,
+			i2c_cmd->reg_addr, i2c_cmd->reg_data,
+			c_ctrl->cci_info->retries);
+
 	if (i2c_msg->addr_type >= CAMERA_SENSOR_I2C_TYPE_MAX) {
 		CAM_ERR(CAM_CCI, "failed: invalid addr_type 0x%X",
 			i2c_msg->addr_type);

@@ -994,6 +994,20 @@ int32_t cam_sensor_driver_cmd(struct cam_sensor_ctrl_t *s_ctrl,
 		if (s_ctrl->i2c_data.init_settings.is_settings_valid &&
 			(s_ctrl->i2c_data.init_settings.request_id == 0)) {
 
+			/* TEMP b1c1: is the sensor alive before init? */
+			if (s_ctrl->cci_i2c_master == MASTER_1) {
+				uint32_t id = 0;
+				int r = camera_io_dev_read(
+					&s_ctrl->io_master_info,
+					s_ctrl->sensordata->slave_info.sensor_id_reg_addr,
+					&id, CAMERA_SENSOR_I2C_TYPE_WORD,
+					CAMERA_SENSOR_I2C_TYPE_WORD);
+				pr_err("b1c1 cam slot %d slave 0x%x pre-init id read rc %d id 0x%x\n",
+					s_ctrl->soc_info.index,
+					s_ctrl->sensordata->slave_info.sensor_slave_addr,
+					r, id);
+			}
+
 			rc = cam_sensor_apply_settings(s_ctrl, 0,
 				CAM_SENSOR_PACKET_OPCODE_SENSOR_INITIAL_CONFIG);
 			if (rc < 0) {

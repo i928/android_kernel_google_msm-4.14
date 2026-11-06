@@ -69,6 +69,11 @@ irqreturn_t cam_cci_irq(int irq_num, void *data)
 	cam_io_w_mb(irq, base + CCI_IRQ_CLEAR_0_ADDR);
 	cam_io_w_mb(0x1, base + CCI_IRQ_GLOBAL_CLEAR_CMD_ADDR);
 
+	/* TEMP b1c1: trace master-1 errors */
+	if (irq & (CCI_IRQ_STATUS_0_I2C_M1_ERROR_BMSK |
+		CCI_IRQ_STATUS_0_I2C_M1_Q0Q1_HALT_ACK_BMSK))
+		pr_err("b1c1 cci irq 0x%08x\n", irq);
+
 	if (irq & CCI_IRQ_STATUS_0_RST_DONE_ACK_BMSK) {
 		if (cci_dev->cci_master_info[MASTER_0].reset_pending == TRUE) {
 			cci_dev->cci_master_info[MASTER_0].reset_pending =
