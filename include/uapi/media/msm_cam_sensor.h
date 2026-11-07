@@ -1,3 +1,8 @@
+/* Pixel 3 (b1c1): the 4.9 camera HAL needs the msm-4.9 layouts of these
+ * structs; every other board keeps the msm-4.14 header below. */
+#ifdef CONFIG_BOARD_B1C1
+#include <media/b1c1/msm_cam_sensor.h>
+#else
 #ifndef __UAPI_LINUX_MSM_CAM_SENSOR_H
 #define __UAPI_LINUX_MSM_CAM_SENSOR_H
 
@@ -39,6 +44,8 @@
 
 #define MSM_V4L2_PIX_FMT_META v4l2_fourcc('M', 'E', 'T', 'A') /* META */
 #define MSM_V4L2_PIX_FMT_META10 v4l2_fourcc('M', 'E', '1', '0') /* META10 */
+#define MSM_V4L2_PIX_FMT_META12 v4l2_fourcc('M', 'E', '1', '2') /* META12 */
+
 #define MSM_V4L2_PIX_FMT_SBGGR14 v4l2_fourcc('B', 'G', '1', '4')
 	/* 14  BGBG.. GRGR.. */
 #define MSM_V4L2_PIX_FMT_SGBRG14 v4l2_fourcc('G', 'B', '1', '4')
@@ -153,6 +160,8 @@ enum csid_cfg_type_t {
 	CSID_CFG,
 	CSID_TESTMODE_CFG,
 	CSID_RELEASE,
+	CSID_SECCAM_TOPOLOGY,
+	CSID_SECCAM_RESET,
 };
 
 enum csiphy_cfg_type_t {
@@ -632,4 +641,4 @@ struct sensor_init_cfg_data {
 	_IOWR('V', BASE_VIDIOC_PRIVATE + 16, struct msm_laser_led_cfg_data_t)
 
 #endif
-
+#endif /* CONFIG_BOARD_B1C1 */
