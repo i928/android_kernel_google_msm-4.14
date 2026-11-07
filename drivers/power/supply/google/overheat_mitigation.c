@@ -364,7 +364,17 @@ static void port_overheat_work(struct work_struct *work)
 	ovh_info->overheat_work_running = true;
 
 	if (get_usb_port_temp(ovh_info) < 0)
+#ifdef CONFIG_BOARD_B1C1
+		/*
+		 * No usb psy port temperature here (the 4.14 smb2 does not
+		 * provide one): polling again cannot help, so go idle and
+		 * drop the wakelock instead of holding it forever, as
+		 * msm-4.9 did by ignoring the error.
+		 */
+		goto idle;
+#else
 		goto rerun;
+#endif
 
 	ret = update_usb_status(ovh_info);
 	if (ret < 0)
@@ -384,6 +394,9 @@ static void port_overheat_work(struct work_struct *work)
 	if (ovh_info->overheat_mitigation || ovh_info->throttle_state)
 		goto rerun;
 	// Do not run again, USB port isn't overheated
+#ifdef CONFIG_BOARD_B1C1
+idle:
+#endif
 	ovh_info->overheat_work_running = false;
 	__pm_relax(&ovh_info->overheat_ws);
 	return;
