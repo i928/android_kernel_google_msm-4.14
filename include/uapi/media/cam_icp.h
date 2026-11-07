@@ -1,3 +1,8 @@
+/* Pixel 3 (b1c1): the 4.9 camera HAL needs the msm-4.9 layouts of these
+ * structs; every other board keeps the msm-4.14 header below. */
+#ifdef CONFIG_BOARD_B1C1
+#include <media/b1c1/cam_icp.h>
+#else
 #ifndef __UAPI_CAM_ICP_H__
 #define __UAPI_CAM_ICP_H__
 
@@ -18,8 +23,11 @@
 #define CAM_ICP_RES_TYPE_MAX        4
 
 /* packet opcode types */
-#define CAM_ICP_OPCODE_IPE_UPDATE 0
-#define CAM_ICP_OPCODE_BPS_UPDATE 1
+#define CAM_ICP_OPCODE_IPE_UPDATE   0
+#define CAM_ICP_OPCODE_BPS_UPDATE   1
+#define CAM_ICP_OPCODE_IPE_SETTINGS 2
+#define CAM_ICP_OPCODE_BPS_SETTINGS 3
+
 
 /* IPE input port resource type */
 #define CAM_ICP_IPE_INPUT_IMAGE_FULL            0x0
@@ -59,8 +67,38 @@
 /* Command meta types */
 #define CAM_ICP_CMD_META_GENERIC_BLOB           0x1
 
-/* Generic blon types */
+/* Generic blob types */
 #define CAM_ICP_CMD_GENERIC_BLOB_CLK            0x1
+#define CAM_ICP_CMD_GENERIC_BLOB_CFG_IO         0x2
+#define CAM_ICP_CMD_GENERIC_BLOB_FW_MEM_MAP     0x3
+#define CAM_ICP_CMD_GENERIC_BLOB_FW_MEM_UNMAP   0x4
+
+#ifdef CONFIG_BOARD_SUNFISH
+
+#include "cam_cpas.h"
+
+#define CAM_ICP_CMD_GENERIC_BLOB_CLK_V2         0x5
+
+/**
+ * struct cam_icp_clk_bw_request_v2
+ *
+ * @budget_ns: Time required to process frame
+ * @frame_cycles: Frame cycles needed to process the frame
+ * @rt_flag: Flag to indicate real time stream
+ * @reserved: For memory alignment
+ * @num_paths: Number of axi paths in bw request
+ * @axi_path: Per path vote info for IPE/BPS
+ */
+struct cam_icp_clk_bw_request_v2 {
+       uint64_t                          budget_ns;
+       uint32_t                          frame_cycles;
+       uint32_t                          rt_flag;
+       uint32_t                          reserved;
+       uint32_t                          num_paths;
+       struct cam_axi_per_path_bw_vote   axi_path[1];
+};
+
+#endif /*CONFIG_BOARD_SUNFISH*/
 
 /**
  * struct cam_icp_clk_bw_request
@@ -176,3 +214,4 @@ struct cam_icp_acquire_dev_info {
 } __attribute__((__packed__));
 
 #endif /* __UAPI_CAM_ICP_H__ */
+#endif /* CONFIG_BOARD_B1C1 */
