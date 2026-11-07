@@ -70,7 +70,8 @@
 		qcom,dsi-panel = <&dsi_s6e3ha8_dsc_wqhd_cmd>;
 	};
 
-	sde_dsi: qcom,dsi-display-primary {
+	/* @4: the 4.9 sepolicy labels soc:qcom,dsi-display@4/backlight sysfs_leds */
+	sde_dsi: qcom,dsi-display@4 {
 		compatible = "qcom,dsi-display";
 		label = "primary";
 
