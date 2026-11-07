@@ -22,7 +22,13 @@
 #define SESSION_NAME_LEN 20
 #define NUM_OF_MEMORY_BLOCKS 1
 #define NUM_OF_BUFFERS 2
+/* The SDM845 (Pixel 3) ADSP CVD expects the msm-4.9 8-entry channel map;
+ * a 32-entry VSS_PARAM_VOCPROC_*_CHANNEL_INFO is rejected (ADSP_EBADPARAM). */
+#ifdef CONFIG_BOARD_B1C1
+#define VSS_NUM_CHANNELS_MAX 8
+#else
 #define VSS_NUM_CHANNELS_MAX 32
+#endif
 #define VSS_CHANNEL_MAPPING_SIZE (sizeof(uint8_t) * VSS_NUM_CHANNELS_MAX)
 /*
  * BUFFER BLOCK SIZE based on
