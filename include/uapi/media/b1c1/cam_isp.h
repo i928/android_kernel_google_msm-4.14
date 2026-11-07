@@ -2,7 +2,7 @@
 #define __UAPI_CAM_ISP_H__
 
 #include "cam_defs.h"
-#include "cam_isp_vfe.h"
+#include <media/cam_isp_vfe.h>
 #include "cam_isp_ife.h"
 
 
