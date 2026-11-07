@@ -1,3 +1,8 @@
+/* Pixel 3 (b1c1): the 4.9 camera HAL needs the msm-4.9 layouts of these
+ * structs; every other board keeps the msm-4.14 header below. */
+#ifdef CONFIG_BOARD_B1C1
+#include <media/b1c1/cam_sync.h>
+#else
 #ifndef __UAPI_CAM_SYNC_H__
 #define __UAPI_CAM_SYNC_H__
 
@@ -117,7 +122,7 @@ struct cam_private_ioctl_arg {
 	__u32 size;
 	__u32 result;
 	__u32 reserved;
-	__user __u64 ioctl_ptr;
+	__u64 ioctl_ptr;
 };
 
 #define CAM_PRIVATE_IOCTL_CMD \
@@ -132,3 +137,4 @@ struct cam_private_ioctl_arg {
 #define CAM_SYNC_WAIT                            6
 
 #endif /* __UAPI_CAM_SYNC_H__ */
+#endif /* CONFIG_BOARD_B1C1 */

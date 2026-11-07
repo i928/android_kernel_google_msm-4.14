@@ -1,3 +1,8 @@
+/* Pixel 3 (b1c1): the 4.9 camera HAL needs the msm-4.9 layouts of these
+ * structs; every other board keeps the msm-4.14 header below. */
+#ifdef CONFIG_BOARD_B1C1
+#include <media/b1c1/cam_isp_ife.h>
+#else
 #ifndef __UAPI_CAM_ISP_IFE_H__
 #define __UAPI_CAM_ISP_IFE_H__
 
@@ -23,7 +28,13 @@
 #define CAM_ISP_IFE_OUT_RES_STATS_RS           (CAM_ISP_IFE_OUT_RES_BASE + 16)
 #define CAM_ISP_IFE_OUT_RES_STATS_CS           (CAM_ISP_IFE_OUT_RES_BASE + 17)
 #define CAM_ISP_IFE_OUT_RES_STATS_IHIST        (CAM_ISP_IFE_OUT_RES_BASE + 18)
-#define CAM_ISP_IFE_OUT_RES_MAX                (CAM_ISP_IFE_OUT_RES_BASE + 19)
+#define CAM_ISP_IFE_OUT_RES_FULL_DISP          (CAM_ISP_IFE_OUT_RES_BASE + 19)
+#define CAM_ISP_IFE_OUT_RES_DS4_DISP           (CAM_ISP_IFE_OUT_RES_BASE + 20)
+#define CAM_ISP_IFE_OUT_RES_DS16_DISP          (CAM_ISP_IFE_OUT_RES_BASE + 21)
+#define CAM_ISP_IFE_OUT_RES_2PD                (CAM_ISP_IFE_OUT_RES_BASE + 22)
+#define CAM_ISP_IFE_OUT_RES_RDI_RD             (CAM_ISP_IFE_OUT_RES_BASE + 23)
+
+#define CAM_ISP_IFE_OUT_RES_MAX                (CAM_ISP_IFE_OUT_RES_BASE + 24)
 
 
 /* IFE input port resource type (global unique) */
@@ -34,6 +45,8 @@
 #define CAM_ISP_IFE_IN_RES_PHY_1               (CAM_ISP_IFE_IN_RES_BASE + 2)
 #define CAM_ISP_IFE_IN_RES_PHY_2               (CAM_ISP_IFE_IN_RES_BASE + 3)
 #define CAM_ISP_IFE_IN_RES_PHY_3               (CAM_ISP_IFE_IN_RES_BASE + 4)
-#define CAM_ISP_IFE_IN_RES_MAX                 (CAM_ISP_IFE_IN_RES_BASE + 5)
+#define CAM_ISP_IFE_IN_RES_RD                  (CAM_ISP_IFE_IN_RES_BASE + 5)
+#define CAM_ISP_IFE_IN_RES_MAX                 (CAM_ISP_IFE_IN_RES_BASE + 6)
 
 #endif /* __UAPI_CAM_ISP_IFE_H__ */
+#endif /* CONFIG_BOARD_B1C1 */
