@@ -437,7 +437,13 @@ struct audio_cal_info_lsm {
 	int32_t		app_type;
 };
 
+/* The SDM845 (Pixel 3) ADSP CVD expects the msm-4.9 8-entry channel map;
+ * a 32-entry VSS_PARAM_VOCPROC_*_CHANNEL_INFO is rejected (ADSP_EBADPARAM). */
+#ifdef CONFIG_BOARD_B1C1
+#define VSS_NUM_CHANNELS_MAX	8
+#else
 #define VSS_NUM_CHANNELS_MAX	32
+#endif
 
 struct audio_cal_info_voc_top {
 	int32_t		topology;
