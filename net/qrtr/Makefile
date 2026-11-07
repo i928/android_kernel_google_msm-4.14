@@ -1,4 +1,7 @@
 obj-$(CONFIG_QRTR) := qrtr.o
+ifeq ($(CONFIG_QRTR),y)
+obj-$(CONFIG_BOARD_B1C1) += ns.o
+endif
 
 obj-$(CONFIG_QRTR_SMD) += qrtr-smd.o
 qrtr-smd-y	:= smd.o
