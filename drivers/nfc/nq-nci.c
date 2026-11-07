@@ -1384,7 +1384,10 @@ static int nqx_probe(struct i2c_client *client,
 	} else {
 		dev_err(&client->dev,
 			"%s: clkreq gpio not provided\n", __func__);
+#ifndef CONFIG_BOARD_B1C1
 		goto err_ese_gpio;
+#endif
+		/* Pixel 3's NFCC has no CLKREQ line; msm-4.9 treated it as optional */
 	}
 
 	nqx_dev->en_gpio = platform_data->en_gpio;
