@@ -2215,6 +2215,26 @@ bail:
 static int fastrpc_mmap_remove_pdr(struct fastrpc_file *fl);
 static int fastrpc_channel_open(struct fastrpc_file *fl);
 static int fastrpc_mmap_remove_ssr(struct fastrpc_file *fl, int locked);
+#ifdef CONFIG_BOARD_B1C1
+/*
+ * The b1c1 vendor libcdsprpc (msm-4.9 era) reaches the CDSP through
+ * /dev/cdsprpc-smd and falls back to /dev/adsprpc-smd, never the -secure
+ * node, so cdsprpcd's attach is refused and it restarts every 100 ms. 4.9
+ * had no such check. Let a system-uid caller attach from the plain node, as
+ * the -secure node (0644 system) would.
+ */
+static bool fastrpc_b1c1_trusted(struct fastrpc_file *fl)
+{
+	return fl->dev_minor == MINOR_NUM_DEV &&
+		uid_eq(current_uid(), KUIDT_INIT(1000));
+}
+#else
+static inline bool fastrpc_b1c1_trusted(struct fastrpc_file *fl)
+{
+	return false;
+}
+#endif
+
 static int fastrpc_init_process(struct fastrpc_file *fl,
 				struct fastrpc_ioctl_init_attrs *uproc)
 {
@@ -2250,7 +2270,7 @@ static int fastrpc_init_process(struct fastrpc_file *fl,
 		remote_arg_t ra[1];
 		int tgid = fl->tgid;
 
-		if (fl->dev_minor == MINOR_NUM_DEV) {
+		if (fl->dev_minor == MINOR_NUM_DEV && !fastrpc_b1c1_trusted(fl)) {
 			err = -ECONNREFUSED;
 			pr_err("adsprpc: %s: untrusted app trying to attach to privileged DSP PD\n",
 				__func__);
