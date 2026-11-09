@@ -4388,6 +4388,36 @@ void __ipa_gsi_irq_rx_scedule_poll(struct ipa3_sys_context *sys)
 	queue_work(sys->wq, &sys->work);
 }
 
+/* TEMP b1c1: WAN consumer state, to tell a stuck frame from a lost one */
+void ipa3_uce_dump(void)
+{
+	int ep = ipa3_get_ep_mapping(IPA_CLIENT_APPS_WAN_CONS);
+	struct gsi_chan_info info;
+	struct ipa3_ep_context *e;
+	u32 active, aggr, holb_en, holb_tmr;
+	int rc;
+
+	if (ep == IPA_EP_NOT_ALLOCATED)
+		return;
+	e = &ipa3_ctx->ep[ep];
+	if (!e->valid || !e->sys)
+		return;
+	memset(&info, 0, sizeof(info));
+	IPA_ACTIVE_CLIENTS_INC_SIMPLE();
+	active = ipahal_read_reg(IPA_STATE_AGGR_ACTIVE);
+	aggr = ipahal_read_reg_n(IPA_ENDP_INIT_AGGR_n, ep);
+	holb_en = ipahal_read_reg_n(IPA_ENDP_INIT_HOL_BLOCK_EN_n, ep);
+	holb_tmr = ipahal_read_reg_n(IPA_ENDP_INIT_HOL_BLOCK_TIMER_n, ep);
+	rc = gsi_query_channel_info(e->gsi_chan_hdl, &info);
+	IPA_ACTIVE_CLIENTS_DEC_SIMPLE();
+	pr_info("uce_dump ep=%d aggr_active=0x%x aggr=0x%x holb_en=0x%x holb_tmr=0x%x polling=%d len=%u pool=%u\n",
+		ep, active, aggr, holb_en, holb_tmr,
+		atomic_read(&e->sys->curr_polling_state), e->sys->len,
+		e->sys->rx_pool_sz);
+	pr_info("uce_dump gsi rc=%d wp=%llx rp=%llx evt_valid=%d evt_wp=%llx evt_rp=%llx\n",
+		rc, info.wp, info.rp, info.evt_valid, info.evt_wp, info.evt_rp);
+}
+
 static void ipa_gsi_irq_rx_notify_cb(struct gsi_chan_xfer_notify *notify)
 {
 	struct ipa3_sys_context *sys;
@@ -4400,6 +4430,14 @@ static void ipa_gsi_irq_rx_notify_cb(struct gsi_chan_xfer_notify *notify)
 
 	sys = (struct ipa3_sys_context *)notify->chan_user_data;
 
+	/* TEMP b1c1 */
+	if (sys->ep->client == IPA_CLIENT_APPS_WAN_CONS) {
+		static atomic_t uce_n = ATOMIC_INIT(0);
+
+		if (atomic_inc_return(&uce_n) <= 1000)
+			pr_info("uce_gsi evt=%d polling=%d\n", notify->evt_id,
+				atomic_read(&sys->curr_polling_state));
+	}
 
 	sys->ep->xfer_notify_valid = true;
 	sys->ep->xfer_notify = *notify;

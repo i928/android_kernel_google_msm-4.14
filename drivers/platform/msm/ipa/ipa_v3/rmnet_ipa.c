@@ -1568,6 +1568,52 @@ static void apps_ipa_tx_complete_notify(void *priv,
 	dev_kfree_skb_any(skb);
 }
 
+/* TEMP b1c1: trace downlink frames to find the lost IMS handshake packets */
+void ipa3_uce_dump(void);
+
+static int uce_dump_set(const char *val, const struct kernel_param *kp)
+{
+	ipa3_uce_dump();
+	return 0;
+}
+
+static const struct kernel_param_ops uce_dump_ops = { .set = uce_dump_set };
+module_param_cb(uce_dump, &uce_dump_ops, NULL, 0200);
+
+static void uce_log_frame(struct sk_buff *skb)
+{
+	static atomic_t seq = ATOMIC_INIT(0);
+	int cnt = atomic_inc_return(&seq);
+	unsigned int off = 0, n = 0;
+	char ids[96];
+	int pos = 0;
+	u8 hdr[56];
+
+	ids[0] = 0;
+	while (off + 4 <= skb->len) {
+		unsigned int avail = min_t(unsigned int, sizeof(hdr),
+					   skb->len - off);
+		const u8 *p = skb_header_pointer(skb, off, avail, hdr);
+		unsigned int plen;
+
+		if (!p)
+			break;
+		plen = (p[2] << 8) | p[3];
+		if (!plen)
+			break;
+		n++;
+		/* QMAP(4) + IPv6(40) + UDP(8): source port 9099, id at +2 */
+		if (avail >= 55 && (p[4] >> 4) == 6 && p[10] == IPPROTO_UDP &&
+		    p[44] == 0x23 && p[45] == 0x8b)
+			pos += scnprintf(ids + pos, sizeof(ids) - pos, " %02x/%u",
+					 p[54], plen);
+		off += 4 + plen + 8;
+	}
+	if (pos || cnt <= 3000)
+		pr_info("uce_rx #%d len=%u pkts=%u end=%u hs:%s\n", cnt,
+			skb->len, n, off, ids);
+}
+
 /**
  * apps_ipa_packet_receive_notify() - Rx notify
  *
@@ -1589,6 +1635,7 @@ static void apps_ipa_packet_receive_notify(void *priv,
 		unsigned int packet_len = skb->len;
 
 		IPAWANDBG_LOW("Rx packet was received");
+		uce_log_frame(skb); /* TEMP b1c1 */
 		skb->dev = IPA_NETDEV();
 		if (!rmnet_ipa3_ctx->no_qmap_config)
 			skb->protocol = htons(ETH_P_MAP);
