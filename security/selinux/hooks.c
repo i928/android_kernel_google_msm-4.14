@@ -4868,6 +4868,15 @@ static int selinux_socket_recvmsg(struct socket *sock, struct msghdr *msg,
 
 static int selinux_socket_getsockname(struct socket *sock)
 {
+#ifdef CONFIG_BOARD_B1C1
+	/*
+	 * libqmi_cci's QRTR transport calls getsockname() on every client
+	 * socket; its msm-4.9 AF_MSM_IPC transport never did, so the crosshatch
+	 * vendor policy grants no getattr (hal_sensors_default: no sensors).
+	 */
+	if (sock->sk->sk_family == PF_QIPCRTR)
+		return 0;
+#endif
 	return sock_has_perm(sock->sk, SOCKET__GETATTR);
 }
 
