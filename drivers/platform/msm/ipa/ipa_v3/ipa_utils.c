@@ -8105,16 +8105,55 @@ int ipa3_stop_gsi_channel(u32 clnt_hdl)
 	return res;
 }
 
+/*
+ * IPA v3.x (sdm845: v3.5.1) cannot stop GSI channels for suspend. As in
+ * msm-4.9, set the consumer pipe's suspend bit instead (IPA then raises its
+ * SUSPEND interrupt when data arrives for it) and switch the channel to poll
+ * mode; -EAGAIN if it still holds data, so the caller retries later.
+ * Producer pipes are left alone, as msm-4.9 did.
+ */
+static int _ipa_suspend_resume_pipe_v3(enum ipa_client_type client,
+	bool suspend)
+{
+	struct ipa_ep_cfg_ctrl cfg;
+	struct ipa3_ep_context *ep;
+	int ipa_ep_idx;
+
+	if (!IPA_CLIENT_IS_CONS(client))
+		return 0;
+	ipa_ep_idx = ipa3_get_ep_mapping(client);
+	if (ipa_ep_idx < 0)
+		return 0;
+	ep = &ipa3_ctx->ep[ipa_ep_idx];
+	if (!ep->valid || !ep->sys)
+		return 0;
+
+	IPADBG("%s pipe %d\n", suspend ? "suspend" : "unsuspend", ipa_ep_idx);
+	memset(&cfg, 0, sizeof(cfg));
+	cfg.ipa_ep_suspend = suspend;
+	ipa3_cfg_ep_ctrl(ipa_ep_idx, &cfg);
+
+	if (suspend) {
+		IPADBG("switch ch %ld to poll\n", ep->gsi_chan_hdl);
+		gsi_config_channel_mode(ep->gsi_chan_hdl, GSI_CHAN_MODE_POLL);
+		if (!ipa3_gsi_channel_is_quite(ep))
+			return -EAGAIN;
+	} else if (!atomic_read(&ep->sys->curr_polling_state)) {
+		IPADBG("switch ch %ld to callback\n", ep->gsi_chan_hdl);
+		gsi_config_channel_mode(ep->gsi_chan_hdl,
+				GSI_CHAN_MODE_CALLBACK);
+	}
+	return 0;
+}
+
 static int _ipa_suspend_resume_pipe(enum ipa_client_type client, bool suspend)
 {
 	int ipa_ep_idx, coal_ep_idx;
 	struct ipa3_ep_context *ep;
 	int res;
 
-	if (ipa3_ctx->ipa_hw_type < IPA_HW_v4_0) {
-		IPAERR("not supported\n");
-		return -EPERM;
-	}
+	if (ipa3_ctx->ipa_hw_type < IPA_HW_v4_0)
+		return _ipa_suspend_resume_pipe_v3(client, suspend);
 
 	ipa_ep_idx = ipa3_get_ep_mapping(client);
 	if (ipa_ep_idx < 0) {
