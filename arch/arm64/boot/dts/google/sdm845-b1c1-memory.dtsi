@@ -81,7 +81,13 @@
 
 };
 
-/ {
+/*
+ * Under &soc, as on msm-4.9: these files build into the dtbo overlay, where
+ * nodes placed in "/" have no target and are dropped, so neither ramoops nor
+ * access_ramoops ever probed. The vendor ramoops tool also looks for both
+ * access devices (metadata and ramoops).
+ */
+&soc {
 	ramoops {
 		compatible = "ramoops";
 		memory-region = <&ramoops_mem>;
@@ -95,5 +101,11 @@
 		compatible = "access_ramoops";
 		label = "metadata";
 		memory-region = <&ramoops_meta_mem>;
+	};
+
+	access_ramoops@1 {
+		compatible = "access_ramoops";
+		label = "ramoops";
+		memory-region = <&alt_ramoops_mem>;
 	};
 };
