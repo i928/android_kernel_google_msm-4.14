@@ -54,6 +54,8 @@
 		reg = <0x5000000 0x40000>, <0x5061000 0x800>;
 		reg-names = "kgsl_3d0_reg_memory", "kgsl_3d0_cx_dbgc_memory";
 		interrupts = <0 300 0>;
+		/* zones behind /sys/class/kgsl/kgsl-3d0/temp */
+		tzone-names = "gpu0-usr", "gpu1-usr";
 		interrupt-names = "kgsl_3d0_irq";
 		qcom,id = <0>;
 
