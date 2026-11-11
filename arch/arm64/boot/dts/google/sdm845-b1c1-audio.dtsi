@@ -114,6 +114,13 @@
 };
 
 &msm_dai_tdm_quat_rx {
+	/*
+	 * One port in the group, as on msm-4.9: sdm845-audio.dtsi adds
+	 * QUAT_TDM_RX_1 (36914), which this board does not use, and with
+	 * two ports the driver sends a group config the ADSP refuses.
+	 */
+	qcom,msm-cpudai-tdm-group-num-ports = <1>;
+	qcom,msm-cpudai-tdm-group-port-id = <36912>;
 	qcom,msm-cpudai-tdm-clk-rate = <12288000>;
 	qcom,msm-cpudai-tdm-sync-mode = <0>;
 	qcom,msm-cpudai-tdm-invert-sync = <0>;
