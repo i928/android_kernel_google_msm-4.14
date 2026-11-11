@@ -1081,8 +1081,10 @@ static int adc_tm5_init(struct adc_tm_chip *chip, uint32_t dt_chans)
 	int pmic_subtype_660 = 0;
 	unsigned int offset_btm_idx = 0, i;
 
+	/* PM8998 has the same "HC" ADC_TM peripheral as PM660 */
 	if ((chip->pmic_rev_id) &&
-		(chip->pmic_rev_id->pmic_subtype == PM660_SUBTYPE)) {
+		(chip->pmic_rev_id->pmic_subtype == PM660_SUBTYPE ||
+		 chip->pmic_rev_id->pmic_subtype == PM8998_SUBTYPE)) {
 		dig_param_len = 2;
 		pmic_subtype_660 = 1;
 	} else {
