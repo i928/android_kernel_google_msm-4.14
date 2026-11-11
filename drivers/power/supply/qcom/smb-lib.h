@@ -18,6 +18,7 @@
 #include <linux/regulator/driver.h>
 #include <linux/regulator/consumer.h>
 #include <linux/extcon.h>
+#include <linux/thermal.h>
 #include "storm-watch.h"
 #include "battery.h"
 
@@ -245,6 +246,10 @@ struct smb_charger {
 	struct smb_irq_info	*irq_info;
 	struct smb_params	param;
 	struct smb_iio		iio;
+
+	/* b1c1: USB port thermistor zone behind the usb psy TEMP property */
+	const char		*usb_port_tz_name;
+	struct thermal_zone_device *usb_port_tz;
 	int			*debug_mask;
 	int			*try_sink_enabled;
 	int			*audio_headset_drp_wait_ms;
@@ -502,6 +507,8 @@ int smblib_get_prop_pd_in_hard_reset(struct smb_charger *chg,
 			       union power_supply_propval *val);
 int smblib_get_pe_start(struct smb_charger *chg,
 			       union power_supply_propval *val);
+int smblib_get_prop_usb_port_temp(struct smb_charger *chg,
+				  union power_supply_propval *val);
 int smblib_get_prop_charger_temp(struct smb_charger *chg,
 				union power_supply_propval *val);
 int smblib_get_prop_charger_temp_max(struct smb_charger *chg,

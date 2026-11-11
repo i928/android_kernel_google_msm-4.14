@@ -333,6 +333,10 @@ static int smb2_parse_dt(struct smb2 *chip)
 	chg->suspend_input_on_debug_batt = of_property_read_bool(node,
 					"qcom,suspend-input-on-debug-batt");
 
+	/* optional: only b1c1 names a USB port thermal zone */
+	of_property_read_string(node, "google,usb-port-tz-name",
+				&chg->usb_port_tz_name);
+
 	rc = of_property_read_u32(node, "qcom,otg-deglitch-time-ms",
 					&chg->otg_delay_ms);
 	if (rc < 0)
@@ -382,6 +386,9 @@ static enum power_supply_property smb2_usb_props[] = {
 	POWER_SUPPLY_PROP_SDP_CURRENT_MAX,
 	POWER_SUPPLY_PROP_CONNECTOR_TYPE,
 	POWER_SUPPLY_PROP_MOISTURE_DETECTED,
+#ifdef CONFIG_BOARD_B1C1
+	POWER_SUPPLY_PROP_TEMP,
+#endif
 };
 
 static int smb2_usb_get_prop(struct power_supply *psy,
@@ -471,6 +478,9 @@ static int smb2_usb_get_prop(struct power_supply *psy,
 		break;
 	case POWER_SUPPLY_PROP_INPUT_CURRENT_NOW:
 		rc = smblib_get_prop_usb_current_now(chg, val);
+		break;
+	case POWER_SUPPLY_PROP_TEMP:
+		rc = smblib_get_prop_usb_port_temp(chg, val);
 		break;
 	case POWER_SUPPLY_PROP_BOOST_CURRENT:
 		val->intval = chg->boost_current_ua;
