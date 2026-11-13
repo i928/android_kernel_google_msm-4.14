@@ -6,6 +6,29 @@ config KERNELVERSION
 	string
 	option env="KERNELVERSION"
 
+# Toolchain facts, from the top Makefile through the environment
+# (KCONFIG_CC_IS_CLANG, KCONFIG_LD_IS_LLD, KCONFIG_AS_IS_LLVM).
+config CC_IS_CLANG_ENV
+	string
+	option env="KCONFIG_CC_IS_CLANG"
+
+config LD_IS_LLD_ENV
+	string
+	option env="KCONFIG_LD_IS_LLD"
+
+config AS_IS_LLVM_ENV
+	string
+	option env="KCONFIG_AS_IS_LLVM"
+
+config CC_IS_CLANG
+	def_bool CC_IS_CLANG_ENV = "y"
+
+config LD_IS_LLD
+	def_bool LD_IS_LLD_ENV = "y"
+
+config AS_IS_LLVM
+	def_bool AS_IS_LLVM_ENV = "y"
+
 config DEFCONFIG_LIST
 	string
 	depends on !UML
