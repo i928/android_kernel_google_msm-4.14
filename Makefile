@@ -576,6 +576,16 @@ endif
 KBUILD_CPPFLAGS += -Qunused-arguments
 endif
 
+# Toolchain facts for Kconfig: this Kconfig has no $(shell ...), so they are
+# passed in the environment and read with "option env" (init/Kconfig). The
+# Android VINTF kernel requirements ask for CONFIG_CC_IS_CLANG,
+# CONFIG_LD_IS_LLD and CONFIG_AS_IS_LLVM. Clang assembles with its integrated
+# assembler unless LLVM_IAS=0 (CLANG_FLAGS above).
+KCONFIG_CC_IS_CLANG := $(if $(filter clang,$(cc-name)),y,n)
+KCONFIG_LD_IS_LLD := $(if $(filter lld,$(ld-name)),y,n)
+KCONFIG_AS_IS_LLVM := $(if $(filter y,$(KCONFIG_CC_IS_CLANG)),$(if $(filter 0,$(LLVM_IAS)),n,y),n)
+export KCONFIG_CC_IS_CLANG KCONFIG_LD_IS_LLD KCONFIG_AS_IS_LLVM
+
 RETPOLINE_CFLAGS_GCC := -mindirect-branch=thunk-extern -mindirect-branch-register
 RETPOLINE_VDSO_CFLAGS_GCC := -mindirect-branch=thunk-inline -mindirect-branch-register
 RETPOLINE_CFLAGS_CLANG := -mretpoline-external-thunk
