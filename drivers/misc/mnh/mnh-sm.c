@@ -2647,6 +2647,10 @@ static struct miscdevice mnh_sm_miscdevice = {
 	.groups = mnh_sm_groups,
 };
 
+/* Deferred mnh-pwr initialisations tolerated before the probe gives up. */
+#define MNH_SM_PWR_DEFER_MAX 3
+static int mnh_sm_pwr_defer_count;
+
 static int mnh_sm_probe(struct platform_device *pdev)
 {
 	struct device *dev;
@@ -2772,6 +2776,19 @@ static int mnh_sm_probe(struct platform_device *pdev)
 	mnh_sm_enable_ready_irq(false);
 	if (error) {
 		dev_err(dev, "failed to initialize mnh-pwr (%d)\n", error);
+		/*
+		 * Every deferred attempt powers the chip up and forces it
+		 * down again, and the retries do not unwind cleanly: one of
+		 * them ends up never returning, which then blocks
+		 * device_shutdown() in wait_for_device_probe() on every
+		 * reboot.  When the PCIe root complex is still not there
+		 * after a few tries it is not coming, so give up for good.
+		 */
+		if (error == -EPROBE_DEFER &&
+		    ++mnh_sm_pwr_defer_count > MNH_SM_PWR_DEFER_MAX) {
+			dev_err(dev, "PCIe link unavailable, giving up\n");
+			error = -ENODEV;
+		}
 		goto fail_probe_2;
 	}
 
