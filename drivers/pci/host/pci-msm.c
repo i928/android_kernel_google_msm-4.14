@@ -4659,6 +4659,44 @@ static int msm_pcie_config_device_table(struct device *dev, void *pdev)
 	return ret;
 }
 
+/*
+ * Older cores (sdm845) have no BDF-to-SID hash table: their PARF window
+ * ends before PCIE20_PARF_BDF_TO_SID_TABLE_N. They translate a BDF to a
+ * stream ID through MAX_SHORT_BDF_NUM BDF_TRANSLATE slots instead, where
+ * slot n gives SID smmu-sid-base + n, as msm-4.9 programmed them.
+ */
+static bool msm_pcie_has_sid_table(struct msm_pcie_dev_t *dev)
+{
+	struct resource *parf = dev->res[MSM_PCIE_RES_PARF].resource;
+
+	return parf && resource_size(parf) >= PCIE20_PARF_BDF_TO_SID_TABLE_N +
+		CRC8_TABLE_SIZE * sizeof(u32);
+}
+
+static void msm_pcie_config_bdf_translate(struct msm_pcie_dev_t *dev)
+{
+	int i;
+
+	msm_pcie_write_reg(dev->parf, PCIE20_PARF_BDF_TRANSLATE_CFG, 0);
+	msm_pcie_write_reg(dev->parf, PCIE20_PARF_SID_OFFSET, 0);
+
+	for (i = 0; i < dev->sid_info_len; i++) {
+		struct msm_pcie_sid_info_t *sid_info = &dev->sid_info[i];
+
+		if (sid_info->pcie_sid >= MAX_SHORT_BDF_NUM) {
+			PCIE_ERR(dev,
+				"PCIe: RC%d: SID 0x%x is past the %d BDF translate slots\n",
+				dev->rc_idx, sid_info->smmu_sid,
+				MAX_SHORT_BDF_NUM);
+			continue;
+		}
+
+		msm_pcie_write_reg(dev->parf, PCIE20_PARF_BDF_TRANSLATE_N +
+				sid_info->pcie_sid * sizeof(u32),
+				sid_info->bdf);
+	}
+}
+
 static void msm_pcie_config_sid(struct msm_pcie_dev_t *dev)
 {
 	void __iomem *bdf_to_sid_base = dev->parf +
@@ -4667,6 +4705,11 @@ static void msm_pcie_config_sid(struct msm_pcie_dev_t *dev)
 
 	if (!dev->sid_info)
 		return;
+
+	if (!msm_pcie_has_sid_table(dev)) {
+		msm_pcie_config_bdf_translate(dev);
+		return;
+	}
 
 	/* Registers need to be zero out first */
 	memset_io(bdf_to_sid_base, 0, CRC8_TABLE_SIZE * sizeof(u32));
