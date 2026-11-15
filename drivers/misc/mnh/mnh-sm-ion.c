@@ -13,11 +13,13 @@
  * more details.
  */
 
+#include <asm/cacheflush.h>
 #include <linux/dma-buf.h>
 #include <linux/errno.h>
 #include <linux/firmware.h>
 #include <linux/ion_kernel.h>
 #include <linux/msm_ion.h>
+#include "../../staging/android/ion/ion.h"
 #include "hw-mnh-regs.h"
 #include "mnh-sm.h"
 
@@ -39,7 +41,7 @@ static int mnh_ion_fw_copy(struct mnh_ion *ion, int slot,
 	unsigned long offset;	/* offset inside ION buffer */
 	void *buf;
 
-	ion_addr = ion->sg->sgl->dma_address;
+	ion_addr = sg_phys(ion->sg->sgl);
 	offset = (slot == 0) ? 0 : ion->fw_array[slot-1].ap_offs +
 		ion->fw_array[slot-1].size;
 
@@ -57,9 +59,14 @@ static int mnh_ion_fw_copy(struct mnh_ion *ion, int slot,
 	ion->fw_array[slot].ap_addr = ion_addr + offset;
 	ion->fw_array[slot].ap_offs = offset;
 
-	dma_buf_begin_cpu_access(ion->dmabuf, DMA_TO_DEVICE);
 	memcpy(buf, data, size);
-	dma_buf_end_cpu_access(ion->dmabuf, DMA_TO_DEVICE);
+	/*
+	 * Clean the copy out to memory for Easel, as msm-4.9 did with
+	 * msm_ion_do_cache_op(ION_IOC_CLEAN_CACHES). Not through the dma-buf
+	 * CPU-access calls: the carveout is not in the linear map, so their
+	 * sync of the attachment would fault.
+	 */
+	dmac_clean_range(buf, buf + size);
 
 	return 0;
 }
@@ -286,25 +293,26 @@ long mnh_ion_create_buffer(struct mnh_ion *ion, size_t size,
 		goto fail_ion_map_kernel;
 	}
 
-	/* Get the buffer's sg_table for its bus address */
-	ion->attach = dma_buf_attach(ion->dmabuf, dev);
-	if (IS_ERR(ion->attach)) {
-		err = PTR_ERR(ion->attach);
-		dev_err(dev, "%s: Cannot attach ion buffer (%ld)\n",
-			__func__, err);
-		goto fail_ion_attach;
-	}
-	ion->sg = dma_buf_map_attachment(ion->attach, DMA_BIDIRECTIONAL);
-	if (IS_ERR_OR_NULL(ion->sg)) {
-		err = ion->sg ? PTR_ERR(ion->sg) : -ENOMEM;
-		dev_err(dev, "%s: Cannot get ion sg_table (%ld)\n",
-			__func__, err);
+	/*
+	 * Easel reaches AP memory through an SMMU in S1 bypass (mnh-pcie), so
+	 * the address it needs is the physical one. msm-4.9 read it from the
+	 * heap's sg_table (ion_sg_table()); do the same. A dma-buf mapping
+	 * cannot give it: mnh_sm has no DMA setup of its own, and easel_mem is
+	 * a removed-dma-pool carveout outside the linear map, so a CPU cache
+	 * sync of it would fault.
+	 */
+	ion->sg = ((struct ion_buffer *)ion->dmabuf->priv)->sg_table;
+	if (!ion->sg || ion->sg->nents != 1) {
+		err = -EINVAL;
+		dev_err(dev, "%s: ION buffer is not one contiguous chunk\n",
+			__func__);
 		goto fail_ion_sg_table;
 	}
 
 	dev_dbg(dev, "sg->nents=%d\n", ion->sg->nents);
 	dev_dbg(dev, "sg->orig_nents=%d\n", ion->sg->orig_nents);
-	dev_dbg(dev, "sgl->dma_address=%pa\n", &(ion->sg->sgl->dma_address));
+	dev_info(dev, "%s: %zuMB ION buffer at bus address %pad\n", __func__,
+		 size >> 20, &(dma_addr_t){ sg_phys(ion->sg->sgl) });
 	dev_dbg(dev, "sgl->length=0x%x\n", ion->sg->sgl->length);
 
 	ion->total_size = size;
@@ -313,9 +321,6 @@ long mnh_ion_create_buffer(struct mnh_ion *ion, size_t size,
 
 fail_ion_sg_table:
 	ion->sg = NULL;
-	dma_buf_detach(ion->dmabuf, ion->attach);
-fail_ion_attach:
-	ion->attach = NULL;
 	dma_buf_vunmap(ion->dmabuf, ion->vaddr);
 fail_ion_map_kernel:
 	ion->vaddr = NULL;
@@ -334,13 +339,7 @@ void mnh_ion_destroy_buffer(struct mnh_ion *ion)
 	dev_dbg(ion->device, "%s: Freeing %zuMB ION buffer...\n",
 		 __func__, ion->total_size >> 20);
 
-	if (ion->sg)
-		dma_buf_unmap_attachment(ion->attach, ion->sg,
-					 DMA_BIDIRECTIONAL);
 	ion->sg = NULL;
-	if (ion->attach)
-		dma_buf_detach(ion->dmabuf, ion->attach);
-	ion->attach = NULL;
 	if (ion->vaddr)
 		dma_buf_vunmap(ion->dmabuf, ion->vaddr);
 	ion->vaddr = NULL;
