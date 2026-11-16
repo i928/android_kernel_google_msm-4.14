@@ -291,6 +291,39 @@ static int sde_cp_disable_crtc_property(struct drm_crtc *crtc,
 	return ret;
 }
 
+/*
+ * struct drm_msm_igc_lut grew c0_last/c1_last/c2_last (the last LUT entry
+ * that VIG IGC v6 programs). Userspace built against the older uapi header
+ * still passes the shorter struct; accept that layout by copying it into a
+ * full-size blob with the new fields zeroed. Only IGC v6 reads them; DSPP
+ * IGC v3.x (sdm845) ignores them.
+ */
+#define SDE_CP_IGC_LEGACY_LEN \
+	ALIGN(offsetof(struct drm_msm_igc_lut, c0_last), \
+	      __alignof__(struct drm_msm_igc_lut))
+
+static struct drm_property_blob *sde_cp_igc_legacy_blob(struct drm_crtc *crtc,
+		struct sde_cp_node *prop_node, struct drm_property_blob *blob)
+{
+	struct drm_property_blob *full;
+
+	if (prop_node->feature != SDE_CP_CRTC_DSPP_IGC ||
+	    prop_node->prop_blob_sz != sizeof(struct drm_msm_igc_lut) ||
+	    blob->length != SDE_CP_IGC_LEGACY_LEN)
+		return blob;
+
+	full = drm_property_create_blob(crtc->dev,
+			sizeof(struct drm_msm_igc_lut), NULL);
+	if (IS_ERR(full)) {
+		drm_property_blob_put(blob);
+		return full;
+	}
+	memcpy(full->data, blob->data,
+	       offsetof(struct drm_msm_igc_lut, c0_last));
+	drm_property_blob_put(blob);
+	return full;
+}
+
 static int sde_cp_enable_crtc_blob_property(struct drm_crtc *crtc,
 					       struct sde_cp_node *prop_node,
 					       uint64_t val)
@@ -306,6 +339,9 @@ static int sde_cp_enable_crtc_blob_property(struct drm_crtc *crtc,
 		DRM_ERROR("invalid blob id %lld\n", val);
 		return -EINVAL;
 	}
+	blob = sde_cp_igc_legacy_blob(crtc, prop_node, blob);
+	if (IS_ERR(blob))
+		return PTR_ERR(blob);
 	if (blob->length != prop_node->prop_blob_sz) {
 		DRM_ERROR("invalid blob len %zd exp %d feature %d\n",
 		    blob->length, prop_node->prop_blob_sz, prop_node->feature);
