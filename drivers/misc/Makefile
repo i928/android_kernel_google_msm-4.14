@@ -107,3 +107,5 @@ obj-$(CONFIG_OKL4_LINK_SHBUF)    += okl4-link-shbuf.o
 obj-$(CONFIG_CITADEL)          += citadel-spi.o
 obj-$(CONFIG_SYSTRACE) += systrace.o
 obj-y                           += mnh/
+obj-$(CONFIG_GOOGLE_EASEL)	+= google-easel.o
+google-easel-objs		+= google-easel-comm.o google-easel-comm-dma.o google-easel-comm-hw.o
