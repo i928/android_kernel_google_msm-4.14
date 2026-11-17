@@ -1,0 +1,14 @@
+. ${ROOT_DIR}/${KERNEL_DIR}/build.config.common
+DEFCONFIG=b1c1_defconfig
+FILES="
+arch/arm64/boot/dtbo.img
+arch/arm64/boot/Image.lz4-dtb
+arch/arm64/boot/Image.lz4
+arch/arm64/boot/dts/google/qcom-base/sdm845-v2.1.dtb
+vmlinux
+System.map
+.config
+"
+# b1c1 builds wlan, touch and everything else into the kernel: no vendor modules.
+EXT_MODULES=""
+UNSTRIPPED_MODULES=""
