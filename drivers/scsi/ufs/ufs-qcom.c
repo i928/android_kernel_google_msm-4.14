@@ -28,9 +28,9 @@
 #include "unipro.h"
 #include "ufs-qcom.h"
 #include "ufshci.h"
-#include "ufs-qcom-ice.h"
 #include "ufs-qcom-debugfs.h"
 #include "ufs_quirks.h"
+#include "ufshcd-crypto-qti.h"
 
 #define MAX_PROP_SIZE		   32
 #define VDDP_REF_CLK_MIN_UV        1200000
@@ -406,14 +406,6 @@ static int ufs_qcom_hce_enable_notify(struct ufs_hba *hba,
 		 * is initialized.
 		 */
 		err = ufs_qcom_enable_lane_clks(host);
-		if (!err && host->ice.pdev) {
-			err = ufs_qcom_ice_init(host);
-			if (err) {
-				dev_err(hba->dev, "%s: ICE init failed (%d)\n",
-					__func__, err);
-				err = -EINVAL;
-			}
-		}
 
 		break;
 	case POST_CHANGE:
@@ -847,7 +839,6 @@ static int ufs_qcom_suspend(struct ufs_hba *hba, enum ufs_pm_op pm_op)
 			ufs_qcom_config_vreg(hba->dev,
 					host->vccq_parent, false);
 
-		ufs_qcom_ice_suspend(host);
 		if (ufs_qcom_is_link_off(hba)) {
 			/* Assert PHY soft reset */
 			ufs_qcom_assert_reset(hba);
@@ -884,13 +875,6 @@ static int ufs_qcom_resume(struct ufs_hba *hba, enum ufs_pm_op pm_op)
 	err = ufs_qcom_enable_lane_clks(host);
 	if (err)
 		goto out;
-
-	err = ufs_qcom_ice_resume(host);
-	if (err) {
-		dev_err(hba->dev, "%s: ufs_qcom_ice_resume failed, err = %d\n",
-			__func__, err);
-		goto out;
-	}
 
 	hba->is_sys_suspended = false;
 
@@ -930,119 +914,6 @@ static int ufs_qcom_full_reset(struct ufs_hba *hba)
 out:
 	return ret;
 }
-
-#ifdef CONFIG_SCSI_UFS_QCOM_ICE
-static int ufs_qcom_crypto_req_setup(struct ufs_hba *hba,
-	struct ufshcd_lrb *lrbp, u8 *cc_index, bool *enable, u64 *dun)
-{
-	struct ufs_qcom_host *host = ufshcd_get_variant(hba);
-	struct request *req;
-	int ret;
-
-	if (lrbp->cmd && lrbp->cmd->request)
-		req = lrbp->cmd->request;
-	else
-		return 0;
-
-	/* Use request LBA or given dun as the DUN value */
-	if (req->bio) {
-#ifdef CONFIG_PFK
-		if (bio_dun(req->bio)) {
-			/* dun @bio can be split, so we have to adjust offset */
-			*dun = bio_dun(req->bio);
-		} else {
-			*dun = req->bio->bi_iter.bi_sector;
-			*dun >>= UFS_QCOM_ICE_TR_DATA_UNIT_4_KB;
-		}
-#else
-		*dun = req->bio->bi_iter.bi_sector;
-		*dun >>= UFS_QCOM_ICE_TR_DATA_UNIT_4_KB;
-#endif
-	}
-	ret = ufs_qcom_ice_req_setup(host, lrbp->cmd, cc_index, enable);
-
-	return ret;
-}
-
-static
-int ufs_qcom_crytpo_engine_cfg_start(struct ufs_hba *hba, unsigned int task_tag)
-{
-	struct ufs_qcom_host *host = ufshcd_get_variant(hba);
-	struct ufshcd_lrb *lrbp = &hba->lrb[task_tag];
-	int err = 0;
-
-	if (!host->ice.pdev ||
-	    !lrbp->cmd ||
-		(lrbp->command_type != UTP_CMD_TYPE_SCSI &&
-		 lrbp->command_type != UTP_CMD_TYPE_UFS_STORAGE))
-		goto out;
-
-	err = ufs_qcom_ice_cfg_start(host, lrbp->cmd);
-out:
-	return err;
-}
-
-static
-int ufs_qcom_crytpo_engine_cfg_end(struct ufs_hba *hba,
-		struct ufshcd_lrb *lrbp, struct request *req)
-{
-	struct ufs_qcom_host *host = ufshcd_get_variant(hba);
-	int err = 0;
-
-	if (!host->ice.pdev || (lrbp->command_type != UTP_CMD_TYPE_SCSI &&
-		lrbp->command_type != UTP_CMD_TYPE_UFS_STORAGE))
-		goto out;
-
-	err = ufs_qcom_ice_cfg_end(host, req);
-out:
-	return err;
-}
-
-static
-int ufs_qcom_crytpo_engine_reset(struct ufs_hba *hba)
-{
-	struct ufs_qcom_host *host = ufshcd_get_variant(hba);
-	int err = 0;
-
-	if (!host->ice.pdev)
-		goto out;
-
-	err = ufs_qcom_ice_reset(host);
-out:
-	return err;
-}
-
-static int ufs_qcom_crypto_engine_get_status(struct ufs_hba *hba, u32 *status)
-{
-	struct ufs_qcom_host *host = ufshcd_get_variant(hba);
-
-	if (!status)
-		return -EINVAL;
-
-	return ufs_qcom_ice_get_status(host, status);
-}
-
-static int ufs_qcom_crypto_get_pending_req_status(struct ufs_hba *hba)
-{
-	struct ufs_qcom_host *host = ufshcd_get_variant(hba);
-	int err = 0;
-
-	if (!host->ice.pdev)
-		goto out;
-
-	err = ufs_qcom_is_ice_busy(host);
-out:
-	return err;
-}
-
-#else /* !CONFIG_SCSI_UFS_QCOM_ICE */
-#define ufs_qcom_crypto_req_setup		NULL
-#define ufs_qcom_crytpo_engine_cfg_start	NULL
-#define ufs_qcom_crytpo_engine_cfg_end		NULL
-#define ufs_qcom_crytpo_engine_reset		NULL
-#define ufs_qcom_crypto_engine_get_status	NULL
-#define ufs_qcom_crypto_get_pending_req_status	NULL
-#endif /* CONFIG_SCSI_UFS_QCOM_ICE */
 
 struct ufs_qcom_dev_params {
 	u32 pwm_rx_gear;	/* pwm rx gear to work in */
@@ -1644,14 +1515,7 @@ static int ufs_qcom_setup_clocks(struct ufs_hba *hba, bool on,
 		if (ufshcd_is_hs_mode(&hba->pwr_info))
 			ufs_qcom_dev_ref_clk_ctrl(host, true);
 
-		err = ufs_qcom_ice_resume(host);
-		if (err)
-			goto out;
 	} else if (!on && (status == PRE_CHANGE)) {
-		err = ufs_qcom_ice_suspend(host);
-		if (err)
-			goto out;
-
 		/*
 		 * If auto hibern8 is supported then the link will already
 		 * be in hibern8 state and the ref clock can be gated.
@@ -1667,7 +1531,6 @@ static int ufs_qcom_setup_clocks(struct ufs_hba *hba, bool on,
 		}
 	}
 
-out:
 	return err;
 }
 
@@ -2202,35 +2065,8 @@ static int ufs_qcom_init(struct ufs_hba *hba)
 
 	/* Make a two way bind between the qcom host and the hba */
 	host->hba = hba;
-	spin_lock_init(&host->ice_work_lock);
 
 	ufshcd_set_variant(hba, host);
-
-	err = ufs_qcom_ice_get_dev(host);
-	if (err == -EPROBE_DEFER) {
-		/*
-		 * UFS driver might be probed before ICE driver does.
-		 * In that case we would like to return EPROBE_DEFER code
-		 * in order to delay its probing.
-		 */
-		dev_err(dev, "%s: required ICE device not probed yet err = %d\n",
-			__func__, err);
-		goto out_variant_clear;
-
-	} else if (err == -ENODEV) {
-		/*
-		 * ICE device is not enabled in DTS file. No need for further
-		 * initialization of ICE driver.
-		 */
-		dev_warn(dev, "%s: ICE device is not enabled",
-			__func__);
-	} else if (err) {
-		dev_err(dev, "%s: ufs_qcom_ice_get_dev failed %d\n",
-			__func__, err);
-		goto out_variant_clear;
-	} else {
-		hba->host->inlinecrypt_support = 1;
-	}
 
 	host->generic_phy = devm_phy_get(dev, "ufsphy");
 
@@ -2255,6 +2091,12 @@ static int ufs_qcom_init(struct ufs_hba *hba)
 
 	/* restore the secure configuration */
 	ufs_qcom_update_sec_cfg(hba, true);
+
+	/*
+	 * Set the vendor specific ops needed for ICE.
+	 * Default implementation if the ops are not set.
+	 */
+	ufshcd_crypto_qti_set_vops(hba);
 
 	err = ufs_qcom_bus_register(host);
 	if (err)
@@ -2808,7 +2650,6 @@ static void ufs_qcom_dump_dbg_regs(struct ufs_hba *hba, bool no_sleep)
 	udelay(1000);
 	ufs_qcom_phy_dbg_register_dump(phy);
 	udelay(1000);
-	ufs_qcom_ice_print_regs(host);
 }
 
 void ufs_qcom_print_phy_state(struct ufs_hba *hba)
@@ -2855,15 +2696,6 @@ static struct ufs_hba_variant_ops ufs_hba_qcom_vops = {
 #endif
 };
 
-static struct ufs_hba_crypto_variant_ops ufs_hba_crypto_variant_ops = {
-	.crypto_req_setup	= ufs_qcom_crypto_req_setup,
-	.crypto_engine_cfg_start	= ufs_qcom_crytpo_engine_cfg_start,
-	.crypto_engine_cfg_end	= ufs_qcom_crytpo_engine_cfg_end,
-	.crypto_engine_reset	  = ufs_qcom_crytpo_engine_reset,
-	.crypto_engine_get_status = ufs_qcom_crypto_engine_get_status,
-	.crypto_get_req_status = ufs_qcom_crypto_get_pending_req_status,
-};
-
 static struct ufs_hba_pm_qos_variant_ops ufs_hba_pm_qos_variant_ops = {
 	.req_start	= ufs_qcom_pm_qos_req_start,
 	.req_end	= ufs_qcom_pm_qos_req_end,
@@ -2872,7 +2704,6 @@ static struct ufs_hba_pm_qos_variant_ops ufs_hba_pm_qos_variant_ops = {
 static struct ufs_hba_variant ufs_hba_qcom_variant = {
 	.name		= "qcom",
 	.vops		= &ufs_hba_qcom_vops,
-	.crypto_vops	= &ufs_hba_crypto_variant_ops,
 	.pm_qos_vops	= &ufs_hba_pm_qos_variant_ops,
 };
 

@@ -52,7 +52,6 @@
 #include <linux/ion_kernel.h>
 #include <linux/compat.h>
 #include "compat_qseecom.h"
-#include <linux/pfk.h>
 #include <linux/kthread.h>
 
 #define QSEECOM_DEV			"qseecom"
@@ -8156,9 +8155,10 @@ static long qseecom_ioctl(struct file *file,
 			pr_err("copy from user failed\n");
 			return -EFAULT;
 		}
-		pfk_fbe_clear_key((const unsigned char *) key_data.key,
-				key_data.key_len, (const unsigned char *)
-				key_data.salt, key_data.salt_len);
+		/*
+		 * PFK is gone: with blk-crypto the keyslot manager evicts a
+		 * key when fscrypt drops it, so there is nothing to clear.
+		 */
 		break;
 	}
 	default:

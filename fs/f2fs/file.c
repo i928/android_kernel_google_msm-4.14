@@ -3773,7 +3773,7 @@ static int f2fs_sec_trim_file(struct file *filp, unsigned long arg)
 			!f2fs_hw_support_discard(sbi)) ||
 			((range.flags & F2FS_TRIM_FILE_ZEROOUT) &&
 			 IS_ENCRYPTED(inode) && (f2fs_is_multi_device(sbi) ||
-		         fscrypt_using_hardware_encryption(inode))))
+		         fscrypt_inode_uses_inline_crypto(inode))))
 		return -EOPNOTSUPP;
 
 	file_start_write(filp);

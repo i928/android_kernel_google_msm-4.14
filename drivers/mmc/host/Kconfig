@@ -443,6 +443,8 @@ config MMC_SDHCI_MSM
 config MMC_SDHCI_MSM_ICE
 	bool "Qualcomm Technologies, Inc Inline Crypto Engine for SDHCI core"
 	depends on MMC_SDHCI_MSM && CRYPTO_DEV_QCOM_ICE
+	# PFK-era glue (bio_dun); not ported to blk-crypto
+	depends on !BLK_INLINE_ENCRYPTION
 	help
 	  This selects the QTI specific additions to support Inline Crypto
 	  Engine (ICE). ICE accelerates the crypto operations and maintains

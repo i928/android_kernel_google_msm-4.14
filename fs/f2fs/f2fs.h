@@ -163,6 +163,9 @@ struct f2fs_mount_info {
 					 * segment or section
 					 */
 	struct fscrypt_dummy_context dummy_enc_ctx; /* test dummy encryption */
+#ifdef CONFIG_FS_ENCRYPTION_INLINE_CRYPT
+	bool inlinecrypt;		/* inline encryption enabled */
+#endif
 	block_t unusable_cap_perc;	/* percentage for cap */
 	block_t unusable_cap;		/* Amount of space allowed to be
 					 * unusable when disabling checkpoint
@@ -1231,9 +1234,6 @@ struct f2fs_bio_info {
 };
 
 /* iv sector for security/pfe/pfk_fscrypt.c and f2fs */
-#define PG_DUN(i,p)                                            \
-	((((i)->i_ino & 0xffffffff) << 32) | (page_index(p) & 0xffffffff))
-
 #define FDEV(i)				(sbi->devs[i])
 #define RDEV(i)				(raw_super->devs[i])
 struct f2fs_dev_info {
@@ -4492,18 +4492,7 @@ static inline bool f2fs_may_encrypt(struct inode *dir, struct inode *inode)
 
 static inline bool f2fs_inode_uses_fs_layer_crypto(struct inode *inode)
 {
-	return (f2fs_encrypted_file(inode) &&
-			!fscrypt_using_hardware_encryption(inode));
-}
-
-static inline bool f2fs_may_encrypt_bio(struct inode *inode,
-		struct f2fs_io_info *fio)
-{
-	if (fio && (fio->type != DATA || fio->encrypted_page))
-		return false;
-
-	return (f2fs_encrypted_file(inode) &&
-			fscrypt_using_hardware_encryption(inode));
+	return fscrypt_inode_uses_fs_layer_crypto(inode);
 }
 
 static inline bool f2fs_low_mem_mode(struct f2fs_sb_info *sbi)
@@ -4566,7 +4555,7 @@ static inline bool f2fs_force_buffered_io(struct inode *inode,
 	struct f2fs_sb_info *sbi = F2FS_I_SB(inode);
 	int rw = iov_iter_rw(iter);
 
-	if (f2fs_inode_uses_fs_layer_crypto(inode))
+	if (!fscrypt_dio_supported(iocb, iter))
 		return true;
 	if (f2fs_compressed_file(inode))
 		return true;
