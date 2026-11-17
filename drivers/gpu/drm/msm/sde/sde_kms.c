@@ -2646,6 +2646,31 @@ static int sde_kms_check_secure_transition(struct msm_kms *kms,
 	return 0;
 }
 
+/*
+ * Continuous splash leaves the panel's connector state with a best_encoder but
+ * no CRTC (sde_kms_cont_splash_config(); the CRTC is attached by composer's
+ * first real commit, which must stay a full modeset). When a commit keeps the
+ * connector without a CRTC, drm_atomic_helper_check_modeset() ->
+ * update_connector_routing() -> set_best_encoder() clears that best_encoder,
+ * but first WARNs that a CRTC-less state has one. Clear it here for exactly
+ * that case (no CRTC in the committed and the new state), so the result is the
+ * same and the WARN does not fire.
+ */
+static void _sde_kms_drop_crtcless_best_encoder(struct drm_atomic_state *state)
+{
+	struct drm_connector *conn;
+	struct drm_connector_state *old_cs, *new_cs;
+	int i;
+
+	for_each_oldnew_connector_in_state(state, conn, old_cs, new_cs, i) {
+		if (!old_cs->crtc && !new_cs->crtc && new_cs->best_encoder) {
+			SDE_DEBUG("conn %d: drop CRTC-less best_encoder %d\n",
+				conn->base.id, new_cs->best_encoder->base.id);
+			new_cs->best_encoder = NULL;
+		}
+	}
+}
+
 static int sde_kms_atomic_check(struct msm_kms *kms,
 		struct drm_atomic_state *state)
 {
@@ -2665,6 +2690,8 @@ static int sde_kms_atomic_check(struct msm_kms *kms,
 		ret = -EBUSY;
 		goto end;
 	}
+
+	_sde_kms_drop_crtcless_best_encoder(state);
 
 	ret = drm_atomic_helper_check(dev, state);
 	if (ret)
