@@ -16,6 +16,7 @@
 #include <linux/i2c.h>
 #include <linux/interrupt.h>
 #include <linux/irq.h>
+#include <linux/irqdesc.h>
 #include <linux/irqdomain.h>
 #include <linux/module.h>
 #include <linux/of_platform.h>
@@ -263,6 +264,16 @@ static struct i2c_pmic_periph *i2c_pmic_find_periph(struct i2c_pmic *chip,
 	return NULL;
 }
 
+/*
+ * Interrupts of this nested chip get their own lockdep class for the irq
+ * descriptor's request_mutex. Requesting one takes the chip's periph lock
+ * (irq_bus_lock) and then the regmap over i2c; the i2c controller (geni +
+ * GPI DMA) itself requests its GPI interrupt on its first transfer. With one
+ * request_mutex class for every descriptor lockdep joins the two into a
+ * cycle, although they are different descriptors.
+ */
+static struct lock_class_key i2c_pmic_irq_request_class;
+
 static int i2c_pmic_domain_map(struct irq_domain *d, unsigned int virq,
 			irq_hw_number_t hwirq)
 {
@@ -276,6 +287,8 @@ static int i2c_pmic_domain_map(struct irq_domain *d, unsigned int virq,
 	irq_set_chip_and_handler(virq, &i2c_pmic_irq_chip, handle_level_irq);
 	irq_set_nested_thread(virq, 1);
 	irq_set_noprobe(virq);
+	lockdep_set_class(&irq_to_desc(virq)->request_mutex,
+			  &i2c_pmic_irq_request_class);
 	return 0;
 }
 
