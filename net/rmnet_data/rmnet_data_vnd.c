@@ -573,6 +573,13 @@ int rmnet_vnd_create_dev(int id, struct net_device **new_device,
 		dev->hw_features |= NETIF_F_GSO_UDP_TUNNEL_CSUM;
 	}
 
+	/*
+	 * rmnet_data devices transmit through the physical device (rmnet_ipa0);
+	 * both are ARPHRD_NONE, so without their own lock classes lockdep sees
+	 * the nested tx queue lock as recursion on _xmit_NONE.
+	 */
+	netdev_lockdep_set_classes(dev);
+
 	rc = register_netdevice(dev);
 	if (rc != 0) {
 		LOGE("Failed to to register netdev [%s]", dev->name);
