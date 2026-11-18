@@ -19,9 +19,14 @@
 #include <linux/radix-tree.h>
 #include <linux/slab.h>
 
+/*
+ * The nodes/servers trees are only touched from qrtr_ns.work (one work item,
+ * never concurrent with itself) and before it is queued, so there is a single
+ * user and no RCU readers: read the slots raw. (5.15's xarray locks inside.)
+ */
 #define ns_for_each(root, iter, slot, srv)				\
 	radix_tree_for_each_slot(slot, root, &iter, 0)			\
-		if (!((srv) = radix_tree_deref_slot(slot))) {} else
+		if (!((srv) = rcu_dereference_raw(*(slot)))) {} else
 
 static RADIX_TREE(nodes, GFP_KERNEL);
 
