@@ -14,6 +14,7 @@
 #include <linux/module.h>
 #include <linux/sched.h>
 #include <linux/irq.h>
+#include <linux/irqdesc.h>
 #include <linux/mfd/core.h>
 #include <linux/regmap.h>
 #include <linux/delay.h>
@@ -484,6 +485,15 @@ void wcd9xxx_disable_irq_sync(
 }
 EXPORT_SYMBOL(wcd9xxx_disable_irq_sync);
 
+/*
+ * The codec's nested interrupts get their own lockdep class for the irq
+ * descriptor's request_mutex: requesting one takes irq_lock (irq_bus_lock) and
+ * then the codec regmap over slimbus, whose tx path can attach an SMMU domain
+ * that requests its own interrupt. With one request_mutex class for every
+ * descriptor lockdep sees a cycle between two different descriptors.
+ */
+static struct lock_class_key wcd9xxx_irq_request_class;
+
 static int wcd9xxx_irq_setup_downstream_irq(
 			struct wcd9xxx_core_resource *wcd9xxx_res)
 {
@@ -516,6 +526,8 @@ static int wcd9xxx_irq_setup_downstream_irq(
 						 handle_edge_irq);
 
 		irq_set_nested_thread(virq, 1);
+		lockdep_set_class(&irq_to_desc(virq)->request_mutex,
+				  &wcd9xxx_irq_request_class);
 	}
 
 	pr_debug("%s: leave\n", __func__);
