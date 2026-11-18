@@ -24,8 +24,10 @@
 #undef __no_sanitize_address
 
 #if __has_feature(address_sanitizer) || __has_feature(hwaddress_sanitizer)
-/* emulate gcc's __SANITIZE_ADDRESS__ flag */
+/* emulate gcc's __SANITIZE_ADDRESS__ flag (Clang 20+ defines it itself) */
+#ifndef __SANITIZE_ADDRESS__
 #define __SANITIZE_ADDRESS__
+#endif
 #define __no_sanitize_address \
 		__attribute__((no_sanitize("address", "hwaddress")))
 #else
