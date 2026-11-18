@@ -11,6 +11,29 @@
 #ifndef _SS_HASHTAB_H_
 #define _SS_HASHTAB_H_
 
+#include <linux/gfp.h>
+#include <linux/preempt.h>
+
+/*
+ * KernelSU edits the live policydb under policy_rwlock's write side on kernels
+ * before 5.10, i.e. with preemption disabled, and reaches these helpers from
+ * there. Allocate atomically and do not offer to reschedule in that case; a
+ * normal policy load runs preemptible and keeps GFP_KERNEL.
+ */
+static inline bool ss_may_sleep(void)
+{
+#ifdef CONFIG_PREEMPT_COUNT
+	return preemptible();
+#else
+	return true;
+#endif
+}
+
+static inline gfp_t ss_node_gfp(void)
+{
+	return ss_may_sleep() ? GFP_KERNEL : GFP_ATOMIC;
+}
+
 #define HASHTAB_MAX_NODES	0xffffffff
 
 struct hashtab_node {
