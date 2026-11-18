@@ -122,7 +122,7 @@ static inline int _rmnet_is_physical_endpoint_associated(struct net_device *dev)
 {
 	rx_handler_func_t *rx_handler;
 
-	rx_handler = rcu_dereference(dev->rx_handler);
+	rx_handler = rcu_dereference_rtnl(dev->rx_handler);
 
 	if (rx_handler == rmnet_data_rx_handler)
 		return 1;
@@ -144,7 +144,7 @@ struct rmnet_phys_ep_config *_rmnet_get_phys_ep_config
 
 	if (_rmnet_is_physical_endpoint_associated(dev)) {
 		_rmnet_phys_ep_config = (struct rmnet_phys_ep_conf_s *)
-					rcu_dereference(dev->rx_handler_data);
+					rcu_dereference_rtnl(dev->rx_handler_data);
 		if (_rmnet_phys_ep_config && _rmnet_phys_ep_config->config)
 			return (struct rmnet_phys_ep_config *)
 					_rmnet_phys_ep_config->config;
@@ -732,7 +732,7 @@ int rmnet_unassociate_network_device(struct net_device *dev)
 	}
 
 	config = (struct rmnet_phys_ep_conf_s *)
-		rcu_dereference(dev->rx_handler_data);
+		rcu_dereference_rtnl(dev->rx_handler_data);
 
 	if (!config)
 		return RMNET_CONFIG_UNKNOWN_ERROR;
