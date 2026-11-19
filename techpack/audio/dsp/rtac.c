@@ -1767,29 +1767,55 @@ static long rtac_ioctl_shared(struct file *f,
 
 	switch (cmd) {
 	case AUDIO_GET_RTAC_ADM_INFO: {
+		/*
+		 * Snapshot under the mutex, copy out after: a fault in
+		 * copy_to_user() takes mmap_sem, and rtac_adm_mutex is also taken
+		 * under afe_cmd_lock (__afe_port_start), which clk
+		 * prepare_lock -> SMMU -> kgsl mmap paths reach (lockdep).
+		 */
+		void *snap;
+
 		mutex_lock(&rtac_adm_mutex);
-		if (copy_to_user((void *)arg, &rtac_adm_data,
+		snap = kmemdup(&rtac_adm_data, sizeof(rtac_adm_data),
+			       GFP_KERNEL);
+		mutex_unlock(&rtac_adm_mutex);
+		if (!snap)
+			return -ENOMEM;
+		if (copy_to_user((void *)arg, snap,
 						sizeof(rtac_adm_data))) {
 			pr_err("%s: copy_to_user failed for AUDIO_GET_RTAC_ADM_INFO\n",
 					__func__);
-			mutex_unlock(&rtac_adm_mutex);
+			kfree(snap);
 			return -EFAULT;
 		}
+		kfree(snap);
 		result = sizeof(rtac_adm_data);
-		mutex_unlock(&rtac_adm_mutex);
 		break;
 	}
 	case AUDIO_GET_RTAC_VOICE_INFO: {
+		/*
+		 * Snapshot under the mutex, copy out after: a fault in
+		 * copy_to_user() takes mmap_sem, and rtac_voice_mutex is also taken
+		 * under afe_cmd_lock (__afe_port_start), which clk
+		 * prepare_lock -> SMMU -> kgsl mmap paths reach (lockdep).
+		 */
+		void *snap;
+
 		mutex_lock(&rtac_voice_mutex);
-		if (copy_to_user((void *)arg, &rtac_voice_data,
+		snap = kmemdup(&rtac_voice_data, sizeof(rtac_voice_data),
+			       GFP_KERNEL);
+		mutex_unlock(&rtac_voice_mutex);
+		if (!snap)
+			return -ENOMEM;
+		if (copy_to_user((void *)arg, snap,
 						sizeof(rtac_voice_data))) {
 			pr_err("%s: copy_to_user failed for AUDIO_GET_RTAC_VOICE_INFO\n",
 					__func__);
-			mutex_unlock(&rtac_voice_mutex);
+			kfree(snap);
 			return -EFAULT;
 		}
+		kfree(snap);
 		result = sizeof(rtac_voice_data);
-		mutex_unlock(&rtac_voice_mutex);
 		break;
 	}
 
