@@ -506,11 +506,17 @@ struct rtnl_link_ops rmnet_link_ops __read_mostly = {
 	.fill_info	= rmnet_fill_info,
 };
 
-/* Needs either rcu_read_lock() or rtnl lock */
+/*
+ * Needs rcu_read_lock(), rcu_read_lock_bh() or the rtnl lock. The transmit
+ * path (dev_queue_xmit -> rmnet_vnd_start_xmit -> rmnet_egress_handler) holds
+ * only rcu_read_lock_bh(), which rcu_dereference_rtnl() does not accept on 4.14.
+ */
 struct rmnet_port *rmnet_get_port(struct net_device *real_dev)
 {
 	if (rmnet_is_real_dev_registered(real_dev))
-		return rcu_dereference_rtnl(real_dev->rx_handler_data);
+		return rcu_dereference_check(real_dev->rx_handler_data,
+					     rcu_read_lock_bh_held() ||
+					     lockdep_rtnl_is_held());
 	else
 		return NULL;
 }
