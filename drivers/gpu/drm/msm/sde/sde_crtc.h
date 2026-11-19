@@ -462,6 +462,7 @@ enum sde_crtc_irq_state {
  * @list: list of user customized event in crtc
  * @state: state of the interrupt
  * @state_lock: spin lock for interrupt state
+ * @crtc: crtc the event belongs to (set by the histogram irq registration)
  */
 struct sde_crtc_irq_info {
 	struct sde_irq_callback irq;
@@ -471,6 +472,7 @@ struct sde_crtc_irq_info {
 	struct list_head list;
 	enum sde_crtc_irq_state state;
 	spinlock_t state_lock;
+	struct sde_crtc *crtc;
 };
 
 #define to_sde_crtc_state(x) \

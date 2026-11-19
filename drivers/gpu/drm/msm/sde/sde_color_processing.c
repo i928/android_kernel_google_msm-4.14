@@ -1937,25 +1937,26 @@ void sde_cp_crtc_post_ipc(struct drm_crtc *drm_crtc)
 
 static void sde_cp_hist_interrupt_cb(void *arg, int irq_idx)
 {
-	struct sde_crtc *crtc = arg;
+	/*
+	 * arg is the histogram event node, whose sde_irq_callback this is.
+	 * This runs with sde_kms->irq_obj.cb_lock held, and the node is only
+	 * freed after sde_core_irq_unregister_callback(), which takes cb_lock,
+	 * so it is valid here. Do not look it up under crtc->spin_lock:
+	 * sde_crtc_disable() holds crtc->spin_lock while the event's func
+	 * disables this irq (sde_core_irq_disable/unregister take cb_lock),
+	 * an ABBA deadlock with this callback on another CPU.
+	 */
+	struct sde_crtc_irq_info *node = arg;
+	struct sde_crtc *crtc = node->crtc;
 	struct drm_crtc *crtc_drm = &crtc->base;
 	struct sde_hw_dspp *hw_dspp;
 	struct sde_kms *kms;
-	struct sde_crtc_irq_info *node = NULL;
 	u32 i;
 	int ret = 0;
 	unsigned long flags;
 
 	/* disable histogram irq */
 	kms = get_kms(crtc_drm);
-	spin_lock_irqsave(&crtc->spin_lock, flags);
-	node = _sde_cp_get_intr_node(DRM_EVENT_HISTOGRAM, crtc);
-	spin_unlock_irqrestore(&crtc->spin_lock, flags);
-
-	if (!node) {
-		DRM_DEBUG_DRIVER("cannot find histogram event node in crtc\n");
-		return;
-	}
 
 	spin_lock_irqsave(&node->state_lock, flags);
 	if (node->state == IRQ_ENABLED) {
@@ -2121,7 +2122,8 @@ int sde_cp_hist_interrupt(struct drm_crtc *crtc_drm, bool en,
 	}
 
 	/* register histogram irq */
-	hist_irq->arg = crtc;
+	node->crtc = crtc;
+	hist_irq->arg = node;
 	hist_irq->func = sde_cp_hist_interrupt_cb;
 	ret = sde_core_irq_register_callback(kms, irq_idx, hist_irq);
 	if (ret) {
