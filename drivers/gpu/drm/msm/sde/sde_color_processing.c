@@ -612,6 +612,43 @@ static struct sde_crtc_irq_info *_sde_cp_get_intr_node(u32 event,
 	return node;
 }
 
+/*
+ * _sde_cp_node_irq_enable - enable irq_idx for an event node that is off
+ * @allow_noinit: also enable from IRQ_NOINIT (first registration)
+ *
+ * Marks the node enabled under node->state_lock but enables the irq after
+ * dropping it, like the disable paths do: sde_core_irq_enable() takes
+ * intr->irq_lock, and the histogram irq callback takes node->state_lock
+ * while sde_hw_intr_dispatch_irq() holds intr->irq_lock and
+ * sde_core_irq_callback_handler() holds cb_lock (ABBA otherwise).
+ * Returns 0 if enabled, 1 if the node was not off, or a negative error.
+ */
+static int _sde_cp_node_irq_enable(struct sde_kms *kms,
+		struct sde_crtc_irq_info *node, int irq_idx, bool allow_noinit)
+{
+	enum sde_crtc_irq_state prev;
+	unsigned long flags;
+	int ret;
+
+	spin_lock_irqsave(&node->state_lock, flags);
+	prev = node->state;
+	if (prev != IRQ_DISABLED && !(allow_noinit && prev == IRQ_NOINIT)) {
+		spin_unlock_irqrestore(&node->state_lock, flags);
+		return 1;
+	}
+	node->state = IRQ_ENABLED;
+	spin_unlock_irqrestore(&node->state_lock, flags);
+
+	ret = sde_core_irq_enable(kms, &irq_idx, 1);
+	if (ret) {
+		spin_lock_irqsave(&node->state_lock, flags);
+		if (node->state == IRQ_ENABLED)
+			node->state = prev;
+		spin_unlock_irqrestore(&node->state_lock, flags);
+	}
+	return ret;
+}
+
 static void _sde_cp_crtc_enable_hist_irq(struct sde_crtc *sde_crtc)
 {
 	struct drm_crtc *crtc_drm = &sde_crtc->base;
@@ -655,15 +692,9 @@ static void _sde_cp_crtc_enable_hist_irq(struct sde_crtc *sde_crtc)
 	if (!node)
 		return;
 
-	spin_lock_irqsave(&node->state_lock, flags);
-	if (node->state == IRQ_DISABLED) {
-		ret = sde_core_irq_enable(kms, &irq_idx, 1);
-		if (ret)
-			DRM_ERROR("failed to enable irq %d\n", irq_idx);
-		else
-			node->state = IRQ_ENABLED;
-	}
-	spin_unlock_irqrestore(&node->state_lock, flags);
+	ret = _sde_cp_node_irq_enable(kms, node, irq_idx, false);
+	if (ret < 0)
+		DRM_ERROR("failed to enable irq %d\n", irq_idx);
 }
 
 static void sde_cp_crtc_setfeature(struct sde_cp_node *prop_node,
@@ -1861,17 +1892,13 @@ int sde_cp_ad_interrupt(struct drm_crtc *crtc_drm, bool en,
 		goto exit;
 	}
 
-	spin_lock_irqsave(&node->state_lock, flags);
-	if (node->state == IRQ_DISABLED || node->state == IRQ_NOINIT) {
-		ret = sde_core_irq_enable(kms, &irq_idx, 1);
-		if (ret) {
-			DRM_ERROR("enable irq %d error %d\n", irq_idx, ret);
-			sde_core_irq_unregister_callback(kms, irq_idx, ad_irq);
-		} else {
-			node->state = IRQ_ENABLED;
-		}
+	ret = _sde_cp_node_irq_enable(kms, node, irq_idx, true);
+	if (ret < 0) {
+		DRM_ERROR("enable irq %d error %d\n", irq_idx, ret);
+		sde_core_irq_unregister_callback(kms, irq_idx, ad_irq);
+	} else {
+		ret = 0;
 	}
-	spin_unlock_irqrestore(&node->state_lock, flags);
 
 exit:
 	return ret;
@@ -2131,18 +2158,13 @@ int sde_cp_hist_interrupt(struct drm_crtc *crtc_drm, bool en,
 		goto exit;
 	}
 
-	spin_lock_irqsave(&node->state_lock, flags);
-	if (node->state == IRQ_DISABLED || node->state == IRQ_NOINIT) {
-		ret = sde_core_irq_enable(kms, &irq_idx, 1);
-		if (ret) {
-			DRM_ERROR("enable irq %d error %d\n", irq_idx, ret);
-			sde_core_irq_unregister_callback(kms,
-				irq_idx, hist_irq);
-		} else {
-			node->state = IRQ_ENABLED;
-		}
+	ret = _sde_cp_node_irq_enable(kms, node, irq_idx, true);
+	if (ret < 0) {
+		DRM_ERROR("enable irq %d error %d\n", irq_idx, ret);
+		sde_core_irq_unregister_callback(kms, irq_idx, hist_irq);
+	} else {
+		ret = 0;
 	}
-	spin_unlock_irqrestore(&node->state_lock, flags);
 
 exit:
 	return ret;
