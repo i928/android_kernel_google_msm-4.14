@@ -101,7 +101,6 @@ int sde_core_irq_idx_lookup(struct sde_kms *sde_kms,
  */
 static int _sde_core_irq_enable(struct sde_kms *sde_kms, int irq_idx)
 {
-	unsigned long irq_flags;
 	int ret = 0;
 
 	if (!sde_kms || !sde_kms->hw_intr ||
@@ -131,12 +130,17 @@ static int _sde_core_irq_enable(struct sde_kms *sde_kms, int irq_idx)
 
 		SDE_DEBUG("irq_idx=%d ret=%d\n", irq_idx, ret);
 
-		spin_lock_irqsave(&sde_kms->irq_obj.cb_lock, irq_flags);
-		/* empty callback list but interrupt is enabled */
+		/*
+		 * Empty callback list but interrupt is enabled. Only a
+		 * diagnostic, so read the list without cb_lock: callers enable
+		 * under their own locks (the histogram under node->state_lock),
+		 * and their irq callbacks take those locks with cb_lock held,
+		 * from sde_core_irq_callback_handler(). Taking cb_lock here
+		 * closes an ABBA deadlock between the two.
+		 */
 		if (list_empty(&sde_kms->irq_obj.irq_cb_tbl[irq_idx]))
 			SDE_ERROR("irq_idx=%d enabled with no callback\n",
 					irq_idx);
-		spin_unlock_irqrestore(&sde_kms->irq_obj.cb_lock, irq_flags);
 	}
 
 	return ret;
