@@ -41,13 +41,14 @@
 #define save_dst		x15
 #define save_src		x16
 #define offset_src_ptr		x17
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 4, 0)
+/*
+ * Never x18: it is the shadow call stack pointer with CONFIG_SHADOW_CALL_STACK
+ * (backported to 4.14 too, so the old LINUX_VERSION_CODE < 5.4 choice of x18
+ * corrupts it). x6 is a caller-saved argument register this routine does not
+ * otherwise use.
+ */
 #define w_tmp_match_length	w6
 #define tmp_match_length	x6
-#else
-#define w_tmp_match_length	w18
-#define tmp_match_length	x18
-#endif
 
 /* x3 >= x4 src overflow */
 .macro check_src_overflow
