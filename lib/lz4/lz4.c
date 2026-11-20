@@ -3217,6 +3217,129 @@ c_only:
 	return partial ? lz4_c_decompress_safe_partial(src, dst, csize, cap) :
 			 lz4_c_decompress_safe(src, dst, csize, cap);
 }
+
+/*
+ * TEST: in-kernel decoder microbenchmark (no zram/block/fs overhead).
+ *   echo "<chunk> <iters> <hc_level> <MiB>" > /sys/module/lz4/parameters/bench
+ * Reads <MiB> of /sys/module/lz4/parameters/bench_file, compresses it in <chunk>-byte
+ * blocks (hc_level 0 = LZ4 fast like zram, >0 = LZ4HC level like f2fs/EROFS), checks
+ * that C and asm both decode every block back to the original, then times the C
+ * decoder and the asm decoder alternately <iters> times over all blocks. Runs on the
+ * writer's CPU (pin it with taskset). Result in .../parameters/bench_result.
+ */
+#include <linux/fs.h>
+#include <linux/ktime.h>
+#include <linux/sched.h>
+
+int LZ4_compress_HC(const char *src, char *dst, int srcSize, int dstCapacity,
+		    int compressionLevel, void *wrkmem);
+
+static char lz4_bench_file[128] = "/data/local/tmp/zbench/corpus.bin";
+module_param_string(bench_file, lz4_bench_file, sizeof(lz4_bench_file), 0644);
+static char lz4_bench_result[384];
+module_param_string(bench_result, lz4_bench_result, sizeof(lz4_bench_result), 0444);
+
+static int lz4_bench_set(const char *val, const struct kernel_param *kp)
+{
+	unsigned int chunk = 4096, iters = 20, mb = 16, nchunks, i, it, pass;
+	int level = 0, ret = 0, bad = 0, bound;
+	u8 *orig = NULL, *comp = NULL, *out = NULL;
+	void *wrk = NULL;
+	int *csz = NULL;
+	struct file *f;
+	loff_t pos = 0;
+	ssize_t n;
+	u64 t0, tc = 0, ta = 0, ctotal = 0, dec;
+
+	if (sscanf(val, "%u %u %d %u", &chunk, &iters, &level, &mb) < 1)
+		return -EINVAL;
+	if (chunk < 256 || chunk > 262144 || !iters || iters > 1000 || !mb ||
+	    mb > 64 || level < 0 || level > 12)
+		return -EINVAL;
+	bound = LZ4_COMPRESSBOUND(chunk);
+	nchunks = ((size_t)mb << 20) / chunk;
+	orig = vmalloc((size_t)mb << 20);
+	out = vmalloc(chunk);
+	comp = vmalloc((size_t)nchunks * bound);
+	csz = vmalloc(nchunks * sizeof(int));
+	wrk = vmalloc(1 << 20);
+	if (!orig || !out || !comp || !csz || !wrk) {
+		ret = -ENOMEM;
+		goto out;
+	}
+	f = filp_open(lz4_bench_file, O_RDONLY, 0);
+	if (IS_ERR(f)) {
+		ret = PTR_ERR(f);
+		goto out;
+	}
+	n = kernel_read(f, orig, (size_t)mb << 20, &pos);
+	filp_close(f, NULL);
+	if (n < (ssize_t)chunk) {
+		ret = -EIO;
+		goto out;
+	}
+	nchunks = n / chunk;
+	for (i = 0; i < nchunks; i++) {
+		char *d = comp + (size_t)i * bound;
+		const char *o = orig + (size_t)i * chunk;
+
+		csz[i] = level ? LZ4_compress_HC(o, d, chunk, bound, level, wrk) :
+				 LZ4_compress_default(o, d, chunk, bound, wrk);
+		if (csz[i] <= 0) {
+			ret = -EIO;
+			goto out;
+		}
+		ctotal += csz[i];
+		cond_resched();
+	}
+	/* correctness pass, untimed */
+	for (pass = 0; pass < 2; pass++)
+		for (i = 0; i < nchunks; i++) {
+			const char *c = comp + (size_t)i * bound;
+			int r = pass ? (int)LZ4_arm64_decompress_safe(c, out, csz[i], chunk, false) :
+				       lz4_c_decompress_safe(c, out, csz[i], chunk);
+
+			if (r != (int)chunk || memcmp(out, orig + (size_t)i * chunk, chunk))
+				bad++;
+		}
+	for (it = 0; it < iters; it++)
+		for (pass = 0; pass < 2; pass++) {
+			unsigned int p = (it & 1) ? !pass : pass;	/* alternate order */
+
+			t0 = ktime_get_ns();
+			for (i = 0; i < nchunks; i++) {
+				const char *c = comp + (size_t)i * bound;
+
+				if (p)
+					LZ4_arm64_decompress_safe(c, out, csz[i], chunk, false);
+				else
+					lz4_c_decompress_safe(c, out, csz[i], chunk);
+			}
+			if (p)
+				ta += ktime_get_ns() - t0;
+			else
+				tc += ktime_get_ns() - t0;
+			cond_resched();
+		}
+	dec = (u64)nchunks * chunk * iters;	/* bytes decoded per decoder */
+	snprintf(lz4_bench_result, sizeof(lz4_bench_result),
+		 "cpu=%d chunk=%u level=%d blocks=%u ratio=%llu.%02llu iters=%u C=%llu MB/s asm=%llu MB/s asm/C=%llu%% bad=%d\n",
+		 raw_smp_processor_id(), chunk, level, nchunks,
+		 (u64)nchunks * chunk / ctotal, (u64)nchunks * chunk * 100 / ctotal % 100,
+		 iters, dec * 1000 / tc, dec * 1000 / ta, tc * 100 / ta, bad);
+	pr_info("lz4 bench: %s", lz4_bench_result);
+out:
+	vfree(wrk);
+	vfree(csz);
+	vfree(comp);
+	vfree(out);
+	vfree(orig);
+	return ret;
+}
+static const struct kernel_param_ops lz4_bench_ops = {
+	.set = lz4_bench_set,
+};
+module_param_cb(bench, &lz4_bench_ops, NULL, 0200);
 #endif
 
 LZ4_FORCE_O2
