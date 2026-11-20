@@ -3087,11 +3087,50 @@ static int __init lz4_verify_init(void)
 }
 subsys_initcall(lz4_verify_init);
 
+static DEFINE_RATELIMIT_STATE(lz4_seq_rs, 5 * HZ, 10);
+
+/* print the LZ4 sequence whose output covers byte 'target' */
+static void lz4_print_seq(const char *src, int csize, int target)
+{
+	const u8 *ip = (const u8 *)src, *iend = ip + csize;
+	int op = 0, n = 0;
+
+	while (ip < iend) {
+		const u8 *seq = ip;
+		u8 tok = *ip++, b;
+		int ll = tok >> 4, ml, off, lstart = op;
+
+		if (ll == 15)
+			do { b = *ip++; ll += b; } while (b == 255 && ip < iend);
+		ip += ll;
+		op += ll;
+		if (ip >= iend) {
+			pr_err("lz4 seq#%d @in %d: LAST literals %d at out %d\n",
+			       n, (int)(seq - (const u8 *)src), ll, lstart);
+			return;
+		}
+		off = ip[0] | (ip[1] << 8);
+		ip += 2;
+		ml = tok & 15;
+		if (ml == 15)
+			do { b = *ip++; ml += b; } while (b == 255 && ip < iend);
+		ml += 4;
+		if (target < op + ml) {
+			pr_err("lz4 seq#%d @in %d: lit %d at out %d, match off %d len %d at out %d (target %d)\n",
+			       n, (int)(seq - (const u8 *)src), ll, lstart, off,
+			       ml, op, target);
+			return;
+		}
+		op += ml;
+		n++;
+	}
+}
+
 static int lz4_route(const char *src, char *dst, int csize, int cap,
 		     bool partial)
 {
 	int mode = READ_ONCE(lz4_asm_mode);
-	int ret, ref;
+	int ret, ref, asm_out = -1, asm_in = -1;
 	void *buf;
 
 	if (mode <= 0 || csize <= LZ4_FAST_MARGIN || cap <= LZ4_FAST_MARGIN ||
@@ -3122,15 +3161,40 @@ static int lz4_route(const char *src, char *dst, int csize, int cap,
 	}
 	ref = partial ? lz4_c_decompress_safe_partial(src, buf, csize, cap) :
 			lz4_c_decompress_safe(src, buf, csize, cap);
-	ret = partial ?
-		LZ4_arm64_decompress_safe_partial(src, dst, csize, cap, false) :
-		LZ4_arm64_decompress_safe(src, dst, csize, cap, false);
+	{
+		/* open-coded LZ4_arm64_decompress_safe{,_partial} to see where the asm stopped */
+		uint8_t *dp = (uint8_t *)dst;
+		const uint8_t *sp = (const uint8_t *)src;
+
+		ret = lz4_decompress_asm(&dp, (uint8_t *)dst,
+					 (uint8_t *)dst + cap - LZ4_FAST_MARGIN, &sp,
+					 (const uint8_t *)src + csize - LZ4_FAST_MARGIN,
+					 false);
+		asm_out = dp - (uint8_t *)dst;
+		asm_in = sp - (const uint8_t *)src;
+		ret = ret ? -EIO :
+		      __LZ4_decompress_generic(src, dst, sp, dp, csize, cap,
+					       partial ? partial_decode :
+							 decode_full_block,
+					       noDict, (BYTE *)dst, NULL, 0);
+	}
 	if ((ref < 0) != (ret < 0) ||
 	    (ref >= 0 && (ret != ref || memcmp(buf, dst, ref)))) {
+		int i, first = -1, last = -1, ndiff = 0;
+
+		for (i = 0; ref > 0 && i < ref; i++)
+			if (((u8 *)buf)[i] != ((u8 *)dst)[i]) {
+				if (first < 0)
+					first = i;
+				last = i;
+				ndiff++;
+			}
 		atomic_long_inc(&lz4_asm_mismatch);
-		pr_err_ratelimited("lz4 asm MISMATCH: %s csize=%d cap=%d c=%d asm=%d\n",
+		pr_err_ratelimited("lz4 asm MISMATCH: %s csize=%d cap=%d c=%d asm=%d stop out=%d in=%d diff first=%d last=%d n=%d\n",
 				   partial ? "partial" : "full", csize, cap,
-				   ref, ret);
+				   ref, ret, asm_out, asm_in, first, last, ndiff);
+		if (first >= 0 && __ratelimit(&lz4_seq_rs))
+			lz4_print_seq(src, csize, first);
 		if (ref > 0)
 			memcpy(dst, buf, ref);
 		ret = ref;
