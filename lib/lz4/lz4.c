@@ -3052,6 +3052,7 @@ static int lz4_c_decompress_safe_partial(const char *src, char *dst,
 #include <linux/moduleparam.h>
 #include <linux/printk.h>
 #include <linux/ratelimit.h>
+#include <linux/bottom_half.h>
 #include <linux/percpu.h>
 #include <linux/vmalloc.h>
 
@@ -3153,13 +3154,13 @@ static int lz4_route(const char *src, char *dst, int csize, int cap,
 	 * pages more than max_distance_pages back), compare, then dst is
 	 * written by the C decoder as usual.
 	 */
-	preempt_disable();
+	local_bh_disable();	/* nested softirq lz4 users (f2fs end_io) share these buffers */
 	buf = lz4_verify_bufs[smp_processor_id()][0];
 	abuf = lz4_verify_bufs[smp_processor_id()][1];
 	sbuf = lz4_verify_bufs[smp_processor_id()][2];
 	if (!buf || !abuf || !sbuf || cap > LZ4_VERIFY_MAX ||
 	    csize > LZ4_VERIFY_MAX) {
-		preempt_enable();
+		local_bh_enable();
 		atomic_long_inc(&lz4_asm_unverified);
 		goto c_only;
 	}
@@ -3211,7 +3212,7 @@ static int lz4_route(const char *src, char *dst, int csize, int cap,
 				   csize, cap);
 	}
 	src = live;
-	preempt_enable();
+	local_bh_enable();
 c_only:
 	return partial ? lz4_c_decompress_safe_partial(src, dst, csize, cap) :
 			 lz4_c_decompress_safe(src, dst, csize, cap);
