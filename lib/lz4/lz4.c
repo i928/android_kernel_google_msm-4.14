@@ -3019,8 +3019,8 @@ LZ4_decompress_generic(const char *const src, char *const dst, int srcSize,
 }
 
 LZ4_FORCE_O2
-int LZ4_decompress_safe(const char *source, char *dest, int compressedSize,
-			int maxDecompressedSize)
+static int lz4_c_decompress_safe(const char *source, char *dest,
+				 int compressedSize, int maxDecompressedSize)
 {
 	return LZ4_decompress_generic(source, dest, compressedSize,
 				      maxDecompressedSize, decode_full_block,
@@ -3028,13 +3028,144 @@ int LZ4_decompress_safe(const char *source, char *dest, int compressedSize,
 }
 
 LZ4_FORCE_O2
+static int lz4_c_decompress_safe_partial(const char *src, char *dst,
+					 int compressedSize, int dstCapacity)
+{
+	return LZ4_decompress_generic(src, dst, compressedSize, dstCapacity,
+				      partial_decode, noDict, (BYTE *)dst, NULL,
+				      0);
+}
+
+#ifdef __ARCH_HAS_LZ4_ACCELERATOR
+/*
+ * TEST (i928 -lz4-asm branch): route LZ4_decompress_safe{,_partial}() -- the
+ * entry points zram, f2fs and EROFS use -- through the arm64 asm decoder.
+ * /sys/module/lz4/parameters/asm_mode:
+ *   0 = C decoder only (stock behaviour)
+ *   1 = asm decoder
+ *   2 = verify: C into a per-CPU scratch buffer first, then asm into dest,
+ *       compare; on any difference log it, count it and return the C result
+ * Counters (read-only): asm_calls, asm_verified, asm_mismatch, asm_unverified.
+ * Only used when src and dst do not overlap (dip = false: the asm then never
+ * writes to the source buffer) and both are larger than LZ4_FAST_MARGIN.
+ */
+#include <linux/moduleparam.h>
+#include <linux/printk.h>
+#include <linux/ratelimit.h>
+#include <linux/percpu.h>
+#include <linux/vmalloc.h>
+
+#define LZ4_VERIFY_MAX	(256 * 1024)
+
+static int lz4_asm_mode = 2;
+module_param_named(asm_mode, lz4_asm_mode, int, 0644);
+
+static atomic_long_t lz4_asm_calls, lz4_asm_verified, lz4_asm_mismatch,
+	lz4_asm_unverified;
+
+static int lz4_param_get_atomic(char *buf, const struct kernel_param *kp)
+{
+	return sprintf(buf, "%ld\n", atomic_long_read(kp->arg));
+}
+static const struct kernel_param_ops lz4_atomic_ops = {
+	.get = lz4_param_get_atomic,
+};
+module_param_cb(asm_calls, &lz4_atomic_ops, &lz4_asm_calls, 0444);
+module_param_cb(asm_verified, &lz4_atomic_ops, &lz4_asm_verified, 0444);
+module_param_cb(asm_mismatch, &lz4_atomic_ops, &lz4_asm_mismatch, 0444);
+module_param_cb(asm_unverified, &lz4_atomic_ops, &lz4_asm_unverified, 0444);
+
+static DEFINE_PER_CPU(void *, lz4_verify_buf);
+
+static int __init lz4_verify_init(void)
+{
+	int cpu;
+
+	for_each_possible_cpu(cpu)
+		per_cpu(lz4_verify_buf, cpu) = vmalloc(LZ4_VERIFY_MAX);
+	return 0;
+}
+subsys_initcall(lz4_verify_init);
+
+static int lz4_route(const char *src, char *dst, int csize, int cap,
+		     bool partial)
+{
+	int mode = READ_ONCE(lz4_asm_mode);
+	int ret, ref;
+	void *buf;
+
+	if (mode <= 0 || csize <= LZ4_FAST_MARGIN || cap <= LZ4_FAST_MARGIN ||
+	    (src < dst + cap && dst < src + csize) || !may_use_simd())
+		return partial ?
+			lz4_c_decompress_safe_partial(src, dst, csize, cap) :
+			lz4_c_decompress_safe(src, dst, csize, cap);
+
+	atomic_long_inc(&lz4_asm_calls);
+	if (mode == 1 || cap > LZ4_VERIFY_MAX) {
+		if (mode != 1)
+			atomic_long_inc(&lz4_asm_unverified);
+		return partial ?
+			LZ4_arm64_decompress_safe_partial(src, dst, csize, cap,
+							  false) :
+			LZ4_arm64_decompress_safe(src, dst, csize, cap, false);
+	}
+
+	preempt_disable();
+	buf = this_cpu_read(lz4_verify_buf);
+	if (!buf) {
+		preempt_enable();
+		atomic_long_inc(&lz4_asm_unverified);
+		return partial ?
+			LZ4_arm64_decompress_safe_partial(src, dst, csize, cap,
+							  false) :
+			LZ4_arm64_decompress_safe(src, dst, csize, cap, false);
+	}
+	ref = partial ? lz4_c_decompress_safe_partial(src, buf, csize, cap) :
+			lz4_c_decompress_safe(src, buf, csize, cap);
+	ret = partial ?
+		LZ4_arm64_decompress_safe_partial(src, dst, csize, cap, false) :
+		LZ4_arm64_decompress_safe(src, dst, csize, cap, false);
+	if ((ref < 0) != (ret < 0) ||
+	    (ref >= 0 && (ret != ref || memcmp(buf, dst, ref)))) {
+		atomic_long_inc(&lz4_asm_mismatch);
+		pr_err_ratelimited("lz4 asm MISMATCH: %s csize=%d cap=%d c=%d asm=%d\n",
+				   partial ? "partial" : "full", csize, cap,
+				   ref, ret);
+		if (ref > 0)
+			memcpy(dst, buf, ref);
+		ret = ref;
+	} else {
+		atomic_long_inc(&lz4_asm_verified);
+	}
+	preempt_enable();
+	return ret;
+}
+#endif
+
+LZ4_FORCE_O2
+int LZ4_decompress_safe(const char *source, char *dest, int compressedSize,
+			int maxDecompressedSize)
+{
+#ifdef __ARCH_HAS_LZ4_ACCELERATOR
+	return lz4_route(source, dest, compressedSize, maxDecompressedSize,
+			 false);
+#else
+	return lz4_c_decompress_safe(source, dest, compressedSize,
+				     maxDecompressedSize);
+#endif
+}
+
+LZ4_FORCE_O2
 int LZ4_decompress_safe_partial(const char *src, char *dst, int compressedSize,
 				int targetOutputSize, int dstCapacity)
 {
 	dstCapacity = MIN(targetOutputSize, dstCapacity);
-	return LZ4_decompress_generic(src, dst, compressedSize, dstCapacity,
-				      partial_decode, noDict, (BYTE *)dst, NULL,
-				      0);
+#ifdef __ARCH_HAS_LZ4_ACCELERATOR
+	return lz4_route(src, dst, compressedSize, dstCapacity, true);
+#else
+	return lz4_c_decompress_safe_partial(src, dst, compressedSize,
+					     dstCapacity);
+#endif
 }
 
 LZ4_FORCE_O2
