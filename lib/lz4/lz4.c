@@ -3043,8 +3043,8 @@ static int lz4_c_decompress_safe_partial(const char *src, char *dst,
  * /sys/module/lz4/parameters/asm_mode:
  *   0 = C decoder only (stock behaviour)
  *   1 = asm decoder
- *   2 = verify: C into a per-CPU scratch buffer first, then asm into dest,
- *       compare; on any difference log it, count it and return the C result
+ *   2 = verify: C and asm each into a per-CPU scratch buffer, compare and
+ *       log/count differences; dest is always written by the C decoder
  * Counters (read-only): asm_calls, asm_verified, asm_mismatch, asm_unverified.
  * Only used when src and dst do not overlap (dip = false: the asm then never
  * writes to the source buffer) and both are larger than LZ4_FAST_MARGIN.
@@ -3075,14 +3075,15 @@ module_param_cb(asm_verified, &lz4_atomic_ops, &lz4_asm_verified, 0444);
 module_param_cb(asm_mismatch, &lz4_atomic_ops, &lz4_asm_mismatch, 0444);
 module_param_cb(asm_unverified, &lz4_atomic_ops, &lz4_asm_unverified, 0444);
 
-static DEFINE_PER_CPU(void *, lz4_verify_buf);
+static void *lz4_verify_bufs[NR_CPUS][2];
 
 static int __init lz4_verify_init(void)
 {
-	int cpu;
+	unsigned int cpu, k;
 
-	for_each_possible_cpu(cpu)
-		per_cpu(lz4_verify_buf, cpu) = vmalloc(LZ4_VERIFY_MAX);
+	for (cpu = 0; cpu < NR_CPUS; cpu++)
+		for (k = 0; k < 2; k++)
+			lz4_verify_bufs[cpu][k] = vmalloc(LZ4_VERIFY_MAX);
 	return 0;
 }
 subsys_initcall(lz4_verify_init);
@@ -3131,59 +3132,58 @@ static int lz4_route(const char *src, char *dst, int csize, int cap,
 {
 	int mode = READ_ONCE(lz4_asm_mode);
 	int ret, ref, asm_out = -1, asm_in = -1;
-	void *buf;
+	void *buf, *abuf;
 
 	if (mode <= 0 || csize <= LZ4_FAST_MARGIN || cap <= LZ4_FAST_MARGIN ||
 	    (src < dst + cap && dst < src + csize) || !may_use_simd())
-		return partial ?
-			lz4_c_decompress_safe_partial(src, dst, csize, cap) :
-			lz4_c_decompress_safe(src, dst, csize, cap);
+		goto c_only;
 
 	atomic_long_inc(&lz4_asm_calls);
-	if (mode == 1 || cap > LZ4_VERIFY_MAX) {
-		if (mode != 1)
-			atomic_long_inc(&lz4_asm_unverified);
+	if (mode == 1)
 		return partial ?
 			LZ4_arm64_decompress_safe_partial(src, dst, csize, cap,
 							  false) :
 			LZ4_arm64_decompress_safe(src, dst, csize, cap, false);
-	}
 
+	/*
+	 * Verify: C and asm each decode into their own contiguous per-CPU
+	 * buffer (dst itself may alias pages: EROFS reuses unneeded output
+	 * pages more than max_distance_pages back), compare, then dst is
+	 * written by the C decoder as usual.
+	 */
 	preempt_disable();
-	buf = this_cpu_read(lz4_verify_buf);
-	if (!buf) {
+	buf = lz4_verify_bufs[smp_processor_id()][0];
+	abuf = lz4_verify_bufs[smp_processor_id()][1];
+	if (!buf || !abuf || cap > LZ4_VERIFY_MAX) {
 		preempt_enable();
 		atomic_long_inc(&lz4_asm_unverified);
-		return partial ?
-			LZ4_arm64_decompress_safe_partial(src, dst, csize, cap,
-							  false) :
-			LZ4_arm64_decompress_safe(src, dst, csize, cap, false);
+		goto c_only;
 	}
 	ref = partial ? lz4_c_decompress_safe_partial(src, buf, csize, cap) :
 			lz4_c_decompress_safe(src, buf, csize, cap);
 	{
 		/* open-coded LZ4_arm64_decompress_safe{,_partial} to see where the asm stopped */
-		uint8_t *dp = (uint8_t *)dst;
+		uint8_t *dp = abuf;
 		const uint8_t *sp = (const uint8_t *)src;
 
-		ret = lz4_decompress_asm(&dp, (uint8_t *)dst,
-					 (uint8_t *)dst + cap - LZ4_FAST_MARGIN, &sp,
+		ret = lz4_decompress_asm(&dp, abuf,
+					 (uint8_t *)abuf + cap - LZ4_FAST_MARGIN, &sp,
 					 (const uint8_t *)src + csize - LZ4_FAST_MARGIN,
 					 false);
-		asm_out = dp - (uint8_t *)dst;
+		asm_out = dp - (uint8_t *)abuf;
 		asm_in = sp - (const uint8_t *)src;
 		ret = ret ? -EIO :
-		      __LZ4_decompress_generic(src, dst, sp, dp, csize, cap,
+		      __LZ4_decompress_generic(src, abuf, sp, dp, csize, cap,
 					       partial ? partial_decode :
 							 decode_full_block,
-					       noDict, (BYTE *)dst, NULL, 0);
+					       noDict, (BYTE *)abuf, NULL, 0);
 	}
 	if ((ref < 0) != (ret < 0) ||
-	    (ref >= 0 && (ret != ref || memcmp(buf, dst, ref)))) {
+	    (ref >= 0 && (ret != ref || memcmp(buf, abuf, ref)))) {
 		int i, first = -1, last = -1, ndiff = 0;
 
 		for (i = 0; ref > 0 && i < ref; i++)
-			if (((u8 *)buf)[i] != ((u8 *)dst)[i]) {
+			if (((u8 *)buf)[i] != ((u8 *)abuf)[i]) {
 				if (first < 0)
 					first = i;
 				last = i;
@@ -3195,14 +3195,13 @@ static int lz4_route(const char *src, char *dst, int csize, int cap,
 				   ref, ret, asm_out, asm_in, first, last, ndiff);
 		if (first >= 0 && __ratelimit(&lz4_seq_rs))
 			lz4_print_seq(src, csize, first);
-		if (ref > 0)
-			memcpy(dst, buf, ref);
-		ret = ref;
 	} else {
 		atomic_long_inc(&lz4_asm_verified);
 	}
 	preempt_enable();
-	return ret;
+c_only:
+	return partial ? lz4_c_decompress_safe_partial(src, dst, csize, cap) :
+			 lz4_c_decompress_safe(src, dst, csize, cap);
 }
 #endif
 
