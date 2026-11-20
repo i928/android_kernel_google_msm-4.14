@@ -3061,7 +3061,7 @@ static int lz4_asm_mode = 2;
 module_param_named(asm_mode, lz4_asm_mode, int, 0644);
 
 static atomic_long_t lz4_asm_calls, lz4_asm_verified, lz4_asm_mismatch,
-	lz4_asm_unverified;
+	lz4_asm_unverified, lz4_src_changed;
 
 static int lz4_param_get_atomic(char *buf, const struct kernel_param *kp)
 {
@@ -3074,15 +3074,16 @@ module_param_cb(asm_calls, &lz4_atomic_ops, &lz4_asm_calls, 0444);
 module_param_cb(asm_verified, &lz4_atomic_ops, &lz4_asm_verified, 0444);
 module_param_cb(asm_mismatch, &lz4_atomic_ops, &lz4_asm_mismatch, 0444);
 module_param_cb(asm_unverified, &lz4_atomic_ops, &lz4_asm_unverified, 0444);
+module_param_cb(src_changed, &lz4_atomic_ops, &lz4_src_changed, 0444);
 
-static void *lz4_verify_bufs[NR_CPUS][2];
+static void *lz4_verify_bufs[NR_CPUS][3];
 
 static int __init lz4_verify_init(void)
 {
 	unsigned int cpu, k;
 
 	for (cpu = 0; cpu < NR_CPUS; cpu++)
-		for (k = 0; k < 2; k++)
+		for (k = 0; k < 3; k++)
 			lz4_verify_bufs[cpu][k] = vmalloc(LZ4_VERIFY_MAX);
 	return 0;
 }
@@ -3132,7 +3133,8 @@ static int lz4_route(const char *src, char *dst, int csize, int cap,
 {
 	int mode = READ_ONCE(lz4_asm_mode);
 	int ret, ref, asm_out = -1, asm_in = -1;
-	void *buf, *abuf;
+	void *buf, *abuf, *sbuf;
+	const char *live = src;
 
 	if (mode <= 0 || csize <= LZ4_FAST_MARGIN || cap <= LZ4_FAST_MARGIN ||
 	    (src < dst + cap && dst < src + csize) || !may_use_simd())
@@ -3154,11 +3156,16 @@ static int lz4_route(const char *src, char *dst, int csize, int cap,
 	preempt_disable();
 	buf = lz4_verify_bufs[smp_processor_id()][0];
 	abuf = lz4_verify_bufs[smp_processor_id()][1];
-	if (!buf || !abuf || cap > LZ4_VERIFY_MAX) {
+	sbuf = lz4_verify_bufs[smp_processor_id()][2];
+	if (!buf || !abuf || !sbuf || cap > LZ4_VERIFY_MAX ||
+	    csize > LZ4_VERIFY_MAX) {
 		preempt_enable();
 		atomic_long_inc(&lz4_asm_unverified);
 		goto c_only;
 	}
+	/* decode both from a private snapshot of the input */
+	memcpy(sbuf, live, csize);
+	src = sbuf;
 	ref = partial ? lz4_c_decompress_safe_partial(src, buf, csize, cap) :
 			lz4_c_decompress_safe(src, buf, csize, cap);
 	{
@@ -3198,6 +3205,12 @@ static int lz4_route(const char *src, char *dst, int csize, int cap,
 	} else {
 		atomic_long_inc(&lz4_asm_verified);
 	}
+	if (memcmp(sbuf, live, csize)) {
+		atomic_long_inc(&lz4_src_changed);
+		pr_err_ratelimited("lz4 verify: input changed under the decoder: csize=%d cap=%d\n",
+				   csize, cap);
+	}
+	src = live;
 	preempt_enable();
 c_only:
 	return partial ? lz4_c_decompress_safe_partial(src, dst, csize, cap) :
