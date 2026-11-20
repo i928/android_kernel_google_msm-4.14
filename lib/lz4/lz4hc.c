@@ -2796,3 +2796,8 @@ char *LZ4_slideInputBufferHC(void *LZ4HC_Data)
 	/* ugly conversion trick, required to evade (const char*) -> (char*) cast-qual warning :( */
 	return (char *)(uptrval)bufferStart;
 }
+
+/* i928: re-export the API the pre-1.10 kernel lz4 exported */
+EXPORT_SYMBOL(LZ4_compress_HC_continue);
+EXPORT_SYMBOL(LZ4_loadDictHC);
+EXPORT_SYMBOL(LZ4_saveDictHC);
