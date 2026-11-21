@@ -13,7 +13,13 @@
 
 #define LZ4_MAX_DISTANCE_PAGES	(DIV_ROUND_UP(LZ4_DISTANCE_MAX, PAGE_SIZE) + 1)
 #ifndef LZ4_DECOMPRESS_INPLACE_MARGIN
-#define LZ4_DECOMPRESS_INPLACE_MARGIN(srcsize)  (((srcsize) >> 8) + 32)
+/*
+ * lz4 >= v1.11 decodes with 64-byte wild copies and can write up to 63 bytes
+ * beyond a copy: the in-place margin is (srcsize >> 8) + 2 + 63 (upstream lz4
+ * 3d5c81017890). lib/lz4 keeps its own macro under LZ4_STATIC_LINKING_ONLY,
+ * which the kernel does not define, so this fallback is the one in use.
+ */
+#define LZ4_DECOMPRESS_INPLACE_MARGIN(srcsize)  (((srcsize) >> 8) + 65)
 #endif
 
 struct z_erofs_decompressor {
