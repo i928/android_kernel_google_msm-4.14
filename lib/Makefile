@@ -277,3 +277,4 @@ obj-$(CONFIG_SBITMAP) += sbitmap.o
 obj-$(CONFIG_PARMAN) += parman.o
 
 obj-y += crypto/
+obj-y += memtest_i928.o	# TEMP i928 C3 test
