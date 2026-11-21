@@ -60,11 +60,18 @@ static int bldr_log_check_header(struct bldr_log_header *header,
 	return -EINVAL;
 }
 
-static void bldr_log_parser(const char *bldr_log, char *bldr_log_buf,
+/*
+ * bldr_log points at ioremap()ed (Device) memory: read it only with the _fromio
+ * accessors. A plain memcpy() may use unaligned/overlapping loads, which fault on
+ * Device memory (alignment fault seen with the optimized-routines arm64 memcpy).
+ */
+static void bldr_log_parser(const char __iomem *bldr_log, char *bldr_log_buf,
 	unsigned long bldr_log_size, unsigned long *bldr_log_buf_size)
 {
-	struct bldr_log_header *header = (struct bldr_log_header *)bldr_log;
+	struct bldr_log_header hdr;
+	struct bldr_log_header *header = &hdr;
 
+	memcpy_fromio(&hdr, bldr_log, sizeof(hdr));
 	if (bldr_log_check_header(header, bldr_log_size)) {
 		pr_warn("%s: bldr_log invalid in %p\n", __func__, bldr_log);
 		return;
@@ -76,20 +83,20 @@ static void bldr_log_parser(const char *bldr_log, char *bldr_log_buf,
 
 		/* Bottom half part  */
 		bldr_log_bottom_size = bldr_log_size - header->offset;
-		memcpy(bldr_log_buf_ptr, bldr_log + header->offset,
+		memcpy_fromio(bldr_log_buf_ptr, bldr_log + header->offset,
 			bldr_log_bottom_size);
 		bldr_log_buf_ptr += bldr_log_bottom_size;
 
 		/* Top half part  */
 		bldr_log_top_size = header->offset;
-		memcpy(bldr_log_buf_ptr, bldr_log + sizeof(*header),
+		memcpy_fromio(bldr_log_buf_ptr, bldr_log + sizeof(*header),
 			bldr_log_top_size);
 
 		*bldr_log_buf_size = bldr_log_bottom_size + bldr_log_top_size;
 	} else {
 		*bldr_log_buf_size = header->offset;
 
-		memcpy(bldr_log_buf, bldr_log + sizeof(*header),
+		memcpy_fromio(bldr_log_buf, bldr_log + sizeof(*header),
 			*bldr_log_buf_size);
 	}
 
@@ -185,7 +192,7 @@ ssize_t bldr_log_total_size(void)
 int bldr_log_setup(phys_addr_t bldr_phy_addr, size_t bldr_log_size,
 	bool is_last_bldr)
 {
-	char *bldr_base;
+	void __iomem *bldr_base;
 	int ret = 0;
 
 	if (!bldr_log_size) {
