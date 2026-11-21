@@ -2842,3 +2842,16 @@ char* LZ4_slideInputBuffer (void* state)
 }
 
 #endif   /* LZ4_COMMONDEFS_ONLY */
+
+/* i928: re-export the API the pre-1.10 kernel lz4 exported (incrementalfs.ko, other modules) */
+EXPORT_SYMBOL(LZ4_compress_destSize);
+EXPORT_SYMBOL(LZ4_compress_fast_continue);
+EXPORT_SYMBOL(LZ4_decompress_safe);
+EXPORT_SYMBOL(LZ4_decompress_safe_partial);
+EXPORT_SYMBOL(LZ4_decompress_fast);
+EXPORT_SYMBOL(LZ4_setStreamDecode);
+EXPORT_SYMBOL(LZ4_decompress_safe_continue);
+EXPORT_SYMBOL(LZ4_decompress_fast_continue);
+EXPORT_SYMBOL(LZ4_decompress_safe_usingDict);
+EXPORT_SYMBOL(LZ4_decompress_fast_usingDict);
+
