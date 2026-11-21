@@ -256,6 +256,18 @@ static int LZ4_isAligned(const void* ptr, size_t alignment)
 *  Types
 **************************************/
 #include <linux/types.h>
+#include <linux/slab.h>
+
+#ifndef ALLOC
+#  define ALLOC(s)	kmalloc(s, GFP_NOIO)
+#endif
+#ifndef FREEMEM
+#  define FREEMEM(p)	kfree(p)
+#endif
+#ifndef ALLOC_AND_ZERO
+#  define ALLOC_AND_ZERO(s) kzalloc(s, GFP_NOIO)
+#endif
+
 typedef  uint8_t BYTE;
 typedef uint16_t U16;
 typedef uint32_t U32;
