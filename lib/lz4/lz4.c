@@ -139,7 +139,7 @@
 #  if defined(_MSC_VER)
 #    define LZ4_FORCE_NOINLINE static __declspec(noinline)
 #  elif defined(__GNUC__) || defined(__clang__)
-#    define LZ4_FORCE_NOINLINE static __attribute__((noinline))
+#    define LZ4_FORCE_NOINLINE static noinline   /* kernel: noinline is a macro */
 #  else
 #    define LZ4_FORCE_NOINLINE static
 #  endif
