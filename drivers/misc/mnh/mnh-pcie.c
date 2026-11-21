@@ -358,7 +358,7 @@ int mnh_ddr_read(uint32_t offset,  uint32_t len, void *data)
 		return -EIO;
 	}
 
-	memcpy(data, mnh_dev->ddr + offset, len);
+	memcpy_fromio(data, mnh_dev->ddr + offset, len);
 
 	return 0;
 }
@@ -402,7 +402,7 @@ int mnh_ddr_write(uint32_t offset, uint32_t len, void *data)
 		return -EIO;
 	}
 
-	memcpy(mnh_dev->ddr + offset, data, len);
+	memcpy_toio(mnh_dev->ddr + offset, data, len);
 
 	return 0;
 }
