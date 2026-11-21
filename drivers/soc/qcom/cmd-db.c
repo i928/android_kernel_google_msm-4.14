@@ -377,7 +377,7 @@ static int cmd_db_dev_probe(struct platform_device *pdev)
 		goto failed;
 	}
 
-	memcpy(cmd_db_header, start_addr, sizeof(*cmd_db_header));
+	memcpy_fromio(cmd_db_header, start_addr, sizeof(*cmd_db_header));
 
 	if (cmd_db_header->magic_num != CMD_DB_MAGIC) {
 		pr_err("%s(): Invalid Magic\n", __func__);
