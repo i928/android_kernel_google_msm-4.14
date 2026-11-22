@@ -897,7 +897,7 @@ CONFIG_KSU_SUSFS_OPEN_REDIRECT=y
 # CONFIG_ARM_DSU_PMU is not set
 # CONFIG_KALLSYMS_ALL is not set
 # CONFIG_SLUB_DEBUG is not set
-# sunfish_defconfig.opt = sunfish_defconfig with SCHEDSTATS off (as lopro). A/B results: sunfish_defconfig.md.
+# sunfish-opt_defconfig = sunfish_defconfig with SCHEDSTATS off (as lopro). A/B results: sunfish_defconfig.md.
 # CONFIG_SCHEDSTATS is not set
 # CONFIG_PM_DEBUG is not set
 # CONFIG_DVB_MPQ is not set
@@ -907,7 +907,7 @@ CONFIG_KSU_SUSFS_OPEN_REDIRECT=y
 # CONFIG_QCOM_LLCC_PERFMON is not set
 # CONFIG_BRIDGE_NETFILTER is not set
 
-# lopro port batch 3 (2026-11-22, .opt only): tracing off, as lopro. FTRACE off also drops BPF_EVENTS,
+# lopro port batch 3 (2026-11-22, -opt only): tracing off, as lopro. FTRACE off also drops BPF_EVENTS,
 # PROBE_EVENTS, UPROBE_EVENTS (+ UPROBES), TRACING_EVENTS_GPIO and BRANCH_PROFILE_NONE. Cost: no perfetto/atrace/
 # systrace, no tracepoint BPF (gpuWork, memevents), no /sys/kernel/tracing events. sunfish_defconfig keeps tracing.
 # CONFIG_FTRACE is not set

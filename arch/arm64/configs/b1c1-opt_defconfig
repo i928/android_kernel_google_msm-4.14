@@ -709,7 +709,7 @@ CONFIG_KFENCE=y
 CONFIG_KFENCE_SAMPLE_INTERVAL=500
 CONFIG_KFENCE_NUM_OBJECTS=63
 CONFIG_PANIC_TIMEOUT=5
-# b1c1_defconfig.opt = b1c1_defconfig with SCHEDSTATS off. Results (sunfish): sunfish_defconfig.md.
+# b1c1-opt_defconfig = b1c1_defconfig with SCHEDSTATS off. Results (sunfish): sunfish_defconfig.md.
 # CONFIG_SCHEDSTATS is not set
 CONFIG_SCHED_STACK_END_CHECK=y
 # CONFIG_DEBUG_PREEMPT is not set
@@ -878,7 +878,7 @@ CONFIG_KSU_SUSFS_OPEN_REDIRECT=y
 # lopro port batch 2 (2026-11-22, as sunfish 7a5bce72dbfa): debug trims. EDAC/RAS, TZ memory dump
 # helpers, KALLSYMS_ALL (KSU resolves functions only), PM_DEBUG (+ PM_SLEEP_DEBUG).
 # Already off on b1c1: CoreSight, JTAGv8, DSU PMU, SLUB_DEBUG and sunfish's unused modules.
-# Kept on purpose: SCHEDSTATS (off variant: b1c1_defconfig.opt), CPU_FREQ_TIMES, DEBUG_INFO, BUGVERBOSE.
+# Kept on purpose: SCHEDSTATS (off variant: b1c1-opt_defconfig), CPU_FREQ_TIMES, DEBUG_INFO, BUGVERBOSE.
 # CONFIG_EDAC is not set
 # CONFIG_RAS is not set
 # CONFIG_QCOM_MEMORY_DUMP_V2 is not set
