@@ -898,7 +898,8 @@ CONFIG_KSU_SUSFS_OPEN_REDIRECT=y
 # CONFIG_KALLSYMS_ALL is not set
 # CONFIG_SLUB_DEBUG is not set
 # REVIEW LATER (user 2026-11-21): lopro has SCHEDSTATS off. Kept on for now; atrace.rc sets
-# sched_schedstats=1 at boot, so its cost is live. A/B: ~/ksu/sunfish-lopro-defconfig-port-scope.md.
+# sched_schedstats=1 at boot, so its cost is live. A/B results: sunfish_defconfig.md.
+# SCHEDSTATS-off variant: sunfish_defconfig.opt (TARGET_KERNEL_CONFIG := sunfish_defconfig.opt).
 CONFIG_SCHEDSTATS=y
 # CONFIG_PM_DEBUG is not set
 # CONFIG_DVB_MPQ is not set
