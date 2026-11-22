@@ -1,19 +1,25 @@
 # sunfish_defconfig / sunfish_defconfig.opt: measured results
 
-| File | SCHEDSTATS |
-|---|---|
-| `sunfish_defconfig` (default) | on (`CONFIG_SCHEDSTATS=y`) |
-| `sunfish_defconfig.opt` | off (as in lopro) |
-| `b1c1_defconfig` / `b1c1_defconfig.opt` | same split for crosshatch (not measured yet) |
+| File | SCHEDSTATS | Tracing (FTRACE) |
+|---|---|---|
+| `sunfish_defconfig` (default) | on | on |
+| `sunfish_defconfig.opt` | off (as lopro) | off (lopro batch 3, as lopro) |
+| `b1c1_defconfig` | on | on |
+| `b1c1_defconfig.opt` | off | on |
 
-All other lines are identical. Both files sit on top of lopro port batches 1+2. To build the `.opt` variant, set
-`TARGET_KERNEL_CONFIG := sunfish_defconfig.opt` in `device/google/sunfish/BoardConfigLineage.mk`
-(`b1c1_defconfig.opt` in `device/google/crosshatch/BoardConfigLineage.mk`). LineageOS `kernel.mk` copies the
-file to `.config` and runs `olddefconfig`, so the name doesn't need to end in `_defconfig`.
+All four sit on top of lopro port batches 1+2. Everything else is identical between a defconfig and its `.opt`.
+Resolved `.config` difference, sunfish defconfig -> .opt (olddefconfig, clang r614150): SCHEDSTATS, SCHED_INFO,
+FTRACE, BPF_EVENTS, PROBE_EVENTS, UPROBE_EVENTS, UPROBES, TRACING_EVENTS_GPIO, BRANCH_PROFILE_NONE.
 
-Resolved `.config` difference: `SCHEDSTATS` and the hidden `SCHED_INFO` (selected only by SCHEDSTATS).
-Turning it off loses `/proc/<pid>/schedstat`. ftrace, perfetto and atrace keep working.
-The runtime cost is real: `/system/etc/init/atrace.rc` writes `sched_schedstats=1` at boot.
+- SCHEDSTATS off also drops the hidden SCHED_INFO (selected only by SCHEDSTATS): loses `/proc/<pid>/schedstat`.
+  The cost of having it on is live: `/system/etc/init/atrace.rc` writes `sched_schedstats=1` at boot.
+- FTRACE off: no perfetto/atrace/systrace, no tracepoint BPF (gpuWork, memevents), no `/sys/kernel/tracing` events.
+  Not measured yet.
+
+**How to build the .opt variant:** sunfish device branch `lineage-23.2_pub-evo-opt` sets
+`TARGET_KERNEL_CONFIG := sunfish_defconfig.opt` (`device/google/sunfish/BoardConfigLineage.mk`). For crosshatch, set
+`b1c1_defconfig.opt` in `device/google/crosshatch/BoardConfigLineage.mk`. LineageOS `kernel.mk` copies the file to
+`.config` and runs `olddefconfig`, so the name doesn't need to end in `_defconfig`.
 
 ## SCHEDSTATS A/B (sunfish, 2026-11-21/22)
 
