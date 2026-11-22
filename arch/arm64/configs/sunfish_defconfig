@@ -883,7 +883,7 @@ CONFIG_KSU_SUSFS_OPEN_REDIRECT=y
 
 # lopro port batch 2 (2026-11-21): debug trims (ref: lopro bq2-ksu sunfish_defconfig).
 # CoreSight + JTAGv8 (held qdss clock across suspend on crosshatch), EDAC/RAS, TZ memory dump
-# helpers, DSU PMU, KALLSYMS_ALL (KSU resolves functions only), SLUB_DEBUG, SCHEDSTATS, PM_DEBUG,
+# helpers, DSU PMU, KALLSYMS_ALL (KSU resolves functions only), SLUB_DEBUG, PM_DEBUG,
 # and modules loaded with no users: DVB MPQ, 11ad proxy, lcd, rdbg, llcc_perfmon, br_netfilter.
 # Kept on purpose: CPU_FREQ_TIMES (only per-UID CPU time source on 4.14), DEBUG_INFO, BUGVERBOSE.
 # CONFIG_CORESIGHT is not set
@@ -897,7 +897,9 @@ CONFIG_KSU_SUSFS_OPEN_REDIRECT=y
 # CONFIG_ARM_DSU_PMU is not set
 # CONFIG_KALLSYMS_ALL is not set
 # CONFIG_SLUB_DEBUG is not set
-# CONFIG_SCHEDSTATS is not set
+# REVIEW LATER (user 2026-11-21): lopro has SCHEDSTATS off. Kept on for now; atrace.rc sets
+# sched_schedstats=1 at boot, so its cost is live. A/B: ~/ksu/sunfish-lopro-defconfig-port-scope.md.
+CONFIG_SCHEDSTATS=y
 # CONFIG_PM_DEBUG is not set
 # CONFIG_DVB_MPQ is not set
 # CONFIG_MSM_11AD is not set
