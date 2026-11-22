@@ -46,6 +46,20 @@ on the same ROM. CPU was 96.5% idle during #49 (loadavg 4-7 is mostly non-CPU lo
 Next, cheapest: on one SCHEDSTATS=y kernel, toggle `/proc/sys/kernel/sched_schedstats` 0/1 between interleaved
 rounds. Same build, same boot, no reflash.
 
+**Runtime toggle, #50 (default sunfish_defconfig, OTA build, 2026-11-22), settles it.** Same boot, uptime 611 s, CPU 98% idle,
+8 interleaved pairs of `sched_schedstats` 0/1 (`schedtoggle.sh`, order alternates per pair):
+
+| sched_schedstats | ping-pong median (range) | mean | hackbench median |
+|---|---|---|---|
+| 0 | **14.39** us (13.76-15.09) | 14.45 | 1.049 s |
+| 1 (boot default, atrace.rc) | **15.26** us (14.54-15.74) | 15.16 | 1.054 s |
+
+Collecting schedstats costs ~0.7 us per round trip (~5-6%): 7 of 8 pairs are slower with it on, mean +0.71 us.
+Hackbench throughput shows no difference. The real figure is ~5%, not the 8-10% from #46 vs #47. #49 (compiled out,
+median 14.78) sits between the two, within its wide range. The same gain comes from writing
+`sched_schedstats=0` at runtime, with SCHEDSTATS kept compiled in (`/proc/<pid>/schedstat` comes from SCHED_INFO and
+stays).
+
 #49 other results: MemTotal 5716888 kB (+296 kB vs #47); 34 modules; 0 avc; all-3 integrity PASS.
 FTRACE=n here does not remove tracefs: TRACING/EVENT_TRACING stay =y (selected by other options), 94 event dirs
 remain (95 before). It does drop tracepoint BPF: BpfLoader-rs gpuMem, gpuWork, bpfMemEvents fail (EINVAL), and
