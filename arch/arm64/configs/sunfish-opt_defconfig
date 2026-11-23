@@ -728,10 +728,9 @@ CONFIG_RCU_PANIC_ON_STALL=1
 CONFIG_IPC_LOGGING=y
 CONFIG_BUG_ON_DATA_CORRUPTION=y
 CONFIG_CC_WERROR=y
-CONFIG_UBSAN=y
-CONFIG_UBSAN_TRAP=y
-# CONFIG_UBSAN_MISC is not set
-# CONFIG_UBSAN_NULL is not set
+# -opt only (2026-11-22): UBSAN off. sunfish_defconfig keeps the bounds traps (UBSAN_SANITIZE_ALL).
+# A/B #53 vs #54: Image -858 KB, MemTotal +776 kB, hackbench -3.8% (within noise), rest unchanged.
+# CONFIG_UBSAN is not set
 CONFIG_ARM64_STRICT_BREAK_BEFORE_MAKE=y
 CONFIG_CORESIGHT_LINK_AND_SINK_TMC=y
 CONFIG_CORESIGHT_SOURCE_ETM4X=y
@@ -897,7 +896,7 @@ CONFIG_KSU_SUSFS_OPEN_REDIRECT=y
 # CONFIG_ARM_DSU_PMU is not set
 # CONFIG_KALLSYMS_ALL is not set
 # CONFIG_SLUB_DEBUG is not set
-# sunfish-opt_defconfig = sunfish_defconfig with SCHEDSTATS off (as lopro). A/B results: sunfish_defconfig.md.
+# sunfish-opt_defconfig = sunfish_defconfig with SCHEDSTATS, UBSAN and FTRACE off. Results: sunfish_defconfig.md.
 # CONFIG_SCHEDSTATS is not set
 # CONFIG_PM_DEBUG is not set
 # CONFIG_DVB_MPQ is not set

@@ -1,15 +1,16 @@
 # sunfish_defconfig / sunfish-opt_defconfig: measured results
 
-| File | SCHEDSTATS | Tracing (FTRACE) |
-|---|---|---|
-| `sunfish_defconfig` (default) | on | on |
-| `sunfish-opt_defconfig` | off (as lopro) | off (lopro batch 3, as lopro) |
-| `b1c1_defconfig` | on | on |
-| `b1c1-opt_defconfig` | off | on |
+| File | SCHEDSTATS | Tracing (FTRACE) | UBSAN (bounds trap) |
+|---|---|---|---|
+| `sunfish_defconfig` (default) | on (collection off at boot, device rc) | on | on |
+| `sunfish-opt_defconfig` | off (as lopro) | off (lopro batch 3, as lopro) | off |
+| `b1c1_defconfig` | on | on | on |
+| `b1c1-opt_defconfig` | off | on | on |
 
 All four sit on top of lopro port batches 1+2. Everything else is identical between a defconfig and its `-opt`.
 Resolved `.config` difference, sunfish defconfig -> -opt (olddefconfig, clang r614150): SCHEDSTATS, SCHED_INFO,
-FTRACE, BPF_EVENTS, PROBE_EVENTS, UPROBE_EVENTS, UPROBES, TRACING_EVENTS_GPIO, BRANCH_PROFILE_NONE.
+FTRACE, BPF_EVENTS, PROBE_EVENTS, UPROBE_EVENTS, UPROBES, TRACING_EVENTS_GPIO, BRANCH_PROFILE_NONE, UBSAN,
+UBSAN_TRAP, UBSAN_BOUNDS, UBSAN_SANITIZE_ALL. Regenerate the -opt with `~/ksu/zbench/mk-sunfish-opt.py <configs dir>`.
 
 - SCHEDSTATS off also drops the hidden SCHED_INFO (selected only by SCHEDSTATS): loses `/proc/<pid>/schedstat`.
   The cost of having it on is live: `/system/etc/init/atrace.rc` writes `sched_schedstats=1` at boot.
@@ -92,3 +93,20 @@ All 32-bit processes now map `[vdso]`: zygote, zygiskd32, audio HAL, cas, media.
 webview_zygote. Boot 24.7 s, 0 avc, 0 crashes, MemTotal unchanged, all-3 integrity PASS.
 Not taken from lopro batch 4: MSM_TZ_LOG (debugfs-only, DEBUG_FS is off), IRQ_SBALANCE (sunfish runs vendor
 msm_irqbalance; only worth an A/B with that service disabled).
+
+## UBSAN A/B (sunfish, 2026-11-22)
+
+UBSAN here is bounds checks with trap, applied to every file through UBSAN_SANITIZE_ALL. With SANITIZE_ALL off, no file
+is instrumented (`scripts/Makefile.lib`; no Makefile opts in), so `CONFIG_UBSAN=y` alone checks nothing.
+#53 (on, OTA boot, uptime 2567 s) vs #54 (SANITIZE_ALL off, autorun on the same ROM, uptime 615 s), 8 rounds each:
+
+| | UBSAN on (#53) | off (#54) |
+|---|---|---|
+| hackbench median | 1.031 s (0.984-1.299) | 0.992 s (0.955-1.048) |
+| ping-pong median | 14.32 us (13.62-14.83) | 14.23 us (13.79-14.58) |
+| syscall clock_gettime (32-bit) | 114.1-115.2 ns | 113.6-113.7 ns |
+| kernel Image | 45,776,920 B | 44,918,808 B (-858 KB) |
+| MemTotal | 5,716,592 kB | 5,717,368 kB (+776 kB) |
+
+Speed differences are within noise (hackbench -3.8% median, overlapping ranges); size and RAM gains are real.
+Decision (user): `sunfish_defconfig` keeps the bounds traps; `sunfish-opt_defconfig` has UBSAN off.
