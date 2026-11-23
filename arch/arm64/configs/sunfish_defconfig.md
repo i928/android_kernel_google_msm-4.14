@@ -76,3 +76,19 @@ UprobeStats BitmapAllocation fails (UPROBES off). Boot is unaffected.
 - MemTotal +1592 kB (5715000 -> 5716592 kB); modules loaded 41 -> 34 (7 unused dropped).
 - Tracing: 95 event dirs, Wi-Fi / BT / mobile data up.
 - Resolved `.config` vs lopro: 193 -> ~85 differing symbols.
+
+## Batch 4: COMPAT_VDSO (sunfish, #52, 2026-11-22)
+
+`CONFIG_COMPAT_VDSO=y` in `sunfish_defconfig` and `sunfish-opt_defconfig`. The arm64 Makefile now builds vdso32 with
+clang + ld.lld when there is no 32-bit GNU toolchain (LineageOS NO_GCC; LineageOS had reverted the option for that
+reason). Measured with `vdsobench32` (freestanding 32-bit, 3 x 2M calls of `clock_gettime(CLOCK_MONOTONIC)`):
+
+| Path | ns/call |
+|---|---|
+| syscall (#51 and #52) | 113.7-120.9 |
+| `__vdso_clock_gettime` (#52) | **66.8** (-41%) |
+
+All 32-bit processes now map `[vdso]`: zygote, zygiskd32, audio HAL, cas, media.c2, drmserver, mediaserver,
+webview_zygote. Boot 24.7 s, 0 avc, 0 crashes, MemTotal unchanged, all-3 integrity PASS.
+Not taken from lopro batch 4: MSM_TZ_LOG (debugfs-only, DEBUG_FS is off), IRQ_SBALANCE (sunfish runs vendor
+msm_irqbalance; only worth an A/B with that service disabled).
