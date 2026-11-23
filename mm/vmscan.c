@@ -4304,6 +4304,7 @@ static int evict_pages(struct lruvec *lruvec, struct scan_control *sc, int swapp
 	int type;
 	int scanned;
 	int reclaimed;
+	int nr_isolated = 0;
 	LIST_HEAD(list);
 	struct page *page;
 	enum vm_event_item item;
@@ -4326,6 +4327,10 @@ static int evict_pages(struct lruvec *lruvec, struct scan_control *sc, int swapp
 	if (list_empty(&list))
 		return scanned;
 
+	list_for_each_entry(page, &list, lru)
+		nr_isolated += hpage_nr_pages(page);
+	mod_node_page_state(pgdat, NR_ISOLATED_ANON + type, nr_isolated);
+
 	reclaimed = shrink_page_list(&list, pgdat, sc, 0, NULL, false);
 
 	/*
@@ -4345,6 +4350,7 @@ static int evict_pages(struct lruvec *lruvec, struct scan_control *sc, int swapp
 	spin_lock_irq(&pgdat->lru_lock);
 
 	putback_inactive_pages(lruvec, &list);
+	__mod_node_page_state(pgdat, NR_ISOLATED_ANON + type, -nr_isolated);
 
 	walk = current->reclaim_state ? current->reclaim_state->mm_walk : NULL;
 	if (walk && walk->batched)
