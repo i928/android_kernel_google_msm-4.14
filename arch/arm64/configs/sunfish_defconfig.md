@@ -60,6 +60,11 @@ median 14.78) sits between the two, within its wide range. The same gain comes f
 `sched_schedstats=0` at runtime, with SCHEDSTATS kept compiled in (`/proc/<pid>/schedstat` comes from SCHED_INFO and
 stays).
 
+**Boot-time fix, #51 (2026-11-22):** device branch `lineage-23.2_pub-evo-schedstats` (af10453e) adds
+`/system_ext/etc/init/init.schedstats.rc`, which writes `sched_schedstats=0` on `sys.boot_completed=1` (system_ext
+so it runs as init; vendor_init cannot write proc_sched). Verified: 0 at boot, 0 avc; ping-pong median 14.54 us
+(13.65-15.04, 8 rounds), hackbench 1.019 s, matching the toggle's off side.
+
 #49 other results: MemTotal 5716888 kB (+296 kB vs #47); 34 modules; 0 avc; all-3 integrity PASS.
 FTRACE=n here does not remove tracefs: TRACING/EVENT_TRACING stay =y (selected by other options), 94 event dirs
 remain (95 before). It does drop tracepoint BPF: BpfLoader-rs gpuMem, gpuWork, bpfMemEvents fail (EINVAL), and
