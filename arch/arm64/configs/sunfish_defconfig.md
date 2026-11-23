@@ -109,4 +109,16 @@ is instrumented (`scripts/Makefile.lib`; no Makefile opts in), so `CONFIG_UBSAN=
 | MemTotal | 5,716,592 kB | 5,717,368 kB (+776 kB) |
 
 Speed differences are within noise (hackbench -3.8% median, overlapping ranges); size and RAM gains are real.
+
+zram compression (`zbench.sh run <alg> 5 7`, CPU7, 256 MiB real-memory corpus, uptime ~1100 s), #55 (on) vs #56 (off),
+autorun kernels on the same ROM, median MB/s:
+
+| alg | compress on / off | decompress on / off |
+|---|---|---|
+| lz4 | 435 / 445 (+2.3%) | 1323 / 1355 (+2.4%) |
+| zstd | 206 / 207 (+0.5%) | 576 / 571 (-0.9%) |
+| lzo | 412 / 413 (+0.2%) | 1098 / 1119 (+1.9%) |
+
+All ranges overlap; zstd (most stable, zram default) is within +-1%. The bounds traps cost ~0-2% even on table-heavy
+code: one compare + an untaken branch, only on arrays of known size, no handler call (trap).
 Decision (user): `sunfish_defconfig` keeps the bounds traps; `sunfish-opt_defconfig` has UBSAN off.
