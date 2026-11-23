@@ -908,3 +908,8 @@ CONFIG_SCHEDSTATS=y
 # CONFIG_MSM_RDBG is not set
 # CONFIG_QCOM_LLCC_PERFMON is not set
 # CONFIG_BRIDGE_NETFILTER is not set
+
+# lopro port batch 4 (2026-11-22): 32-bit vDSO (stock and lopro have it). Without it, 32-bit processes
+# (audio HAL, media.c2, mediaserver, app_process32, ...) make a syscall for every clock_gettime.
+# Needs the clang-only vdso32 build (arch/arm64/Makefile). Selects ARM_ARCH_TIMER_VCT_ACCESS (EL0 cntvct).
+CONFIG_COMPAT_VDSO=y
