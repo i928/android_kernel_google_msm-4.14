@@ -4034,6 +4034,10 @@ static bool sort_page(struct lruvec *lruvec, struct page *page, struct scan_cont
 	int tier = page_lru_tier(page);
 	int delta = hpage_nr_pages(page);
 	struct lru_gen_struct *lrugen = &lruvec->lrugen;
+	unsigned long flags = READ_ONCE(page->flags);
+	/* same encoding as page_lru_tier(): saturated = beyond the tracking range of tiers */
+	bool saturated = (flags & LRU_REFS_FLAGS) == LRU_REFS_FLAGS &&
+			 ((flags & LRU_REFS_MASK) >> LRU_REFS_PGOFF) + 1 == BIT(LRU_REFS_WIDTH);
 
 	VM_BUG_ON_PAGE(gen >= MAX_NR_GENS, page);
 
@@ -4059,7 +4063,8 @@ static bool sort_page(struct lruvec *lruvec, struct page *page, struct scan_cont
 		return true;
 	}
 
-	if (tier > tier_idx) {
+	/* protected */
+	if (tier > tier_idx || saturated) {
 		int hist = lru_hist_from_seq(lrugen->min_seq[type]);
 
 		gen = page_inc_gen(lruvec, page, false);
