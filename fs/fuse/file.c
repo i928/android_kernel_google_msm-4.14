@@ -1538,7 +1538,6 @@ __acquires(fc->lock)
 	return;
 
  out_free:
-	fi->writectr--;
 	rb_erase(&req->writepages_entry, &fi->writepages);
 	fuse_writepage_finish(fc, req);
 	spin_unlock(&fc->lock);
@@ -1852,6 +1851,7 @@ static bool fuse_writepage_add(struct fuse_req *new_req,
 	} else {
 		new_req->misc.write.next = old_req->misc.write.next;
 		old_req->misc.write.next = new_req;
+		spin_unlock(&fc->lock);
 	}
 
 	return false;
