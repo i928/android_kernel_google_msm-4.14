@@ -2775,8 +2775,15 @@ static int qseecom_load_app(struct qseecom_dev_handle *data, void __user *argp)
 		}
 
 		/*  SCM_CALL  to load the app and get the app_id back */
+		pr_info("i928dbg: load %s pa=%pa len=%zu nents=%u mdt=%u img=%u exp=%s\n",
+			(char *)load_img_req.img_name, &pa, len, sgt ? sgt->nents : 0,
+			load_img_req.mdt_len, load_img_req.img_len,
+			dmabuf && dmabuf->exp_name ? dmabuf->exp_name : "?");
 		ret = qseecom_scm_call(SCM_SVC_TZSCHEDULER, 1, cmd_buf,
 			cmd_len, &resp, sizeof(resp));
+		pr_info("i928dbg: load %s scm ret=%d result=%u resp_type=%u data=%u\n",
+			(char *)load_img_req.img_name, ret, resp.result,
+			resp.resp_type, resp.data);
 		if (ret) {
 			pr_err("scm_call to load app failed\n");
 			ret = -EINVAL;
