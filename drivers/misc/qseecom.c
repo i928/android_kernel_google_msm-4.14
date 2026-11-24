@@ -2623,6 +2623,9 @@ static int __qseecom_check_app_exists(struct qseecom_check_app_ireq *req,
 	}
 }
 
+static int i928flush = 1;
+module_param(i928flush, int, 0644);
+
 static int qseecom_load_app(struct qseecom_dev_handle *data, void __user *argp)
 {
 	struct qseecom_registered_app_list *entry = NULL;
@@ -2775,6 +2778,15 @@ static int qseecom_load_app(struct qseecom_dev_handle *data, void __user *argp)
 		}
 
 		/*  SCM_CALL  to load the app and get the app_id back */
+		{
+			unsigned long dfl = 0;
+
+			dma_buf_get_flags(dmabuf, &dfl);
+			if (i928flush && pfn_valid(__phys_to_pfn(pa)))
+				__dma_flush_area(phys_to_virt(pa), len);
+			pr_info("i928dbg: flags=%#lx cached=%d flush=%d\n", dfl,
+				!!(dfl & ION_FLAG_CACHED), i928flush);
+		}
 		pr_info("i928dbg: load %s pa=%pa len=%zu nents=%u mdt=%u img=%u exp=%s\n",
 			(char *)load_img_req.img_name, &pa, len, sgt ? sgt->nents : 0,
 			load_img_req.mdt_len, load_img_req.img_len,
