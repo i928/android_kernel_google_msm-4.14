@@ -2774,6 +2774,17 @@ static int qseecom_load_app(struct qseecom_dev_handle *data, void __user *argp)
 			goto loadapp_err;
 		}
 
+		/*
+		 * The cache op above is a no-op for uncached ion buffers, but
+		 * the kernel linear alias of the buffer can still hold stale
+		 * lines (ion zeroes it through that alias). sdm845 TZ reads the
+		 * image cacheably and then rejects APP_START with
+		 * SCM_EINVAL_ARG, intermittently, so Widevine falls back to L3.
+		 * Flush the alias so TZ sees what userspace wrote.
+		 */
+		if (pfn_valid(__phys_to_pfn(pa)))
+			__dma_flush_area(phys_to_virt(pa), len);
+
 		/*  SCM_CALL  to load the app and get the app_id back */
 		ret = qseecom_scm_call(SCM_SVC_TZSCHEDULER, 1, cmd_buf,
 			cmd_len, &resp, sizeof(resp));
