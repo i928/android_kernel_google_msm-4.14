@@ -2063,6 +2063,15 @@ unsigned int vb2_core_poll(struct vb2_queue *q, struct file *file,
 	struct vb2_buffer *vb = NULL;
 	unsigned long flags;
 
+	/*
+	 * poll_wait() MUST be called on the first invocation on all the
+	 * potential queues of interest, even if we are not interested in their
+	 * events during this first call. Failure to do so will result in
+	 * queue's events to be ignored because the poll_table won't be capable
+	 * of adding new wait queues thereafter.
+	 */
+	poll_wait(file, &q->done_wq, wait);
+
 	if (!q->is_output && !(req_events & (POLLIN | POLLRDNORM)))
 		return 0;
 	if (q->is_output && !(req_events & (POLLOUT | POLLWRNORM)))
@@ -2112,16 +2121,12 @@ unsigned int vb2_core_poll(struct vb2_queue *q, struct file *file,
 	if (q->is_output && q->fileio && q->queued_count < q->num_buffers)
 		return POLLOUT | POLLWRNORM;
 
-	if (list_empty(&q->done_list)) {
-		/*
-		 * If the last buffer was dequeued from a capture queue,
-		 * return immediately. DQBUF will return -EPIPE.
-		 */
-		if (q->last_buffer_dequeued)
-			return POLLIN | POLLRDNORM;
-
-		poll_wait(file, &q->done_wq, wait);
-	}
+	/*
+	 * If the last buffer was dequeued from a capture queue,
+	 * return immediately. DQBUF will return -EPIPE.
+	 */
+	if (list_empty(&q->done_list) && q->last_buffer_dequeued)
+		return POLLIN | POLLRDNORM;
 
 	/*
 	 * Take first buffer available for dequeuing.
