@@ -63,7 +63,7 @@ CONFIG_SCHED_MC=y
 CONFIG_NR_CPUS=8
 CONFIG_PREEMPT=y
 CONFIG_HZ_300=y
-CONFIG_PROCESS_RECLAIM=y
+# CONFIG_PROCESS_RECLAIM is not set
 # Multi-gen LRU (2026-11-22): built in, off at boot. Turn on at runtime: echo y > /sys/kernel/mm/lru_gen/enabled
 CONFIG_LRU_GEN=y
 CONFIG_DEFAULT_MMAP_MIN_ADDR=32768
