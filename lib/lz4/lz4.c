@@ -3037,6 +3037,37 @@ static int lz4_c_decompress_safe_partial(const char *src, char *dst,
 }
 
 #ifdef __ARCH_HAS_LZ4_ACCELERATOR
+#include <linux/kernel.h>
+#include <linux/moduleparam.h>
+/*
+ * TEST knobs for the arm64 asm decoder:
+ *   asm_variant 0 = per-CPU selected (prfm unless A53), 1 = noprfm, 2 = v2
+ *   asm_dmargin / asm_smargin = distance the asm keeps from dst/src end
+ *   (default LZ4_FAST_MARGIN 128; the asm over-writes up to 63 bytes past
+ *   its dst end and over-reads up to 31 past its src end -> min 64 / 32).
+ */
+int lz4_asm_variant;
+module_param_named(asm_variant, lz4_asm_variant, int, 0644);
+static unsigned int lz4_asm_dmargin = LZ4_FAST_MARGIN, lz4_asm_smargin = LZ4_FAST_MARGIN;
+
+static int lz4_margin_set(const char *val, const struct kernel_param *kp)
+{
+	unsigned int v, min = kp->arg == &lz4_asm_dmargin ? 64 : 32;
+
+	if (kstrtouint(val, 0, &v) || v < min || v > 4096)
+		return -EINVAL;
+	WRITE_ONCE(*(unsigned int *)kp->arg, v);
+	return 0;
+}
+static const struct kernel_param_ops lz4_margin_ops = {
+	.set = lz4_margin_set,
+	.get = param_get_uint,
+};
+module_param_cb(asm_dmargin, &lz4_margin_ops, &lz4_asm_dmargin, 0644);
+module_param_cb(asm_smargin, &lz4_margin_ops, &lz4_asm_smargin, 0644);
+#endif
+
+#ifdef __ARCH_HAS_LZ4_ACCELERATOR
 /*
  * TEST (i928 -lz4-asm branch): route LZ4_decompress_safe{,_partial}() -- the
  * entry points zram, f2fs and EROFS use -- through the arm64 asm decoder.
@@ -3137,7 +3168,7 @@ static int lz4_route(const char *src, char *dst, int csize, int cap,
 	void *buf, *abuf, *sbuf;
 	const char *live = src;
 
-	if (mode <= 0 || csize <= LZ4_FAST_MARGIN || cap <= LZ4_FAST_MARGIN ||
+	if (mode <= 0 || csize <= READ_ONCE(lz4_asm_smargin) || cap <= READ_ONCE(lz4_asm_dmargin) ||
 	    (src < dst + cap && dst < src + csize) || !may_use_simd())
 		goto c_only;
 
@@ -3175,8 +3206,8 @@ static int lz4_route(const char *src, char *dst, int csize, int cap,
 		const uint8_t *sp = (const uint8_t *)src;
 
 		ret = lz4_decompress_asm(&dp, abuf,
-					 (uint8_t *)abuf + cap - LZ4_FAST_MARGIN, &sp,
-					 (const uint8_t *)src + csize - LZ4_FAST_MARGIN,
+					 (uint8_t *)abuf + cap - READ_ONCE(lz4_asm_dmargin), &sp,
+					 (const uint8_t *)src + csize - READ_ONCE(lz4_asm_smargin),
 					 false);
 		asm_out = dp - (uint8_t *)abuf;
 		asm_in = sp - (const uint8_t *)src;
@@ -3323,8 +3354,8 @@ static int lz4_bench_set(const char *val, const struct kernel_param *kp)
 		}
 	dec = (u64)nchunks * chunk * iters;	/* bytes decoded per decoder */
 	snprintf(lz4_bench_result, sizeof(lz4_bench_result),
-		 "cpu=%d chunk=%u level=%d blocks=%u ratio=%llu.%02llu iters=%u C=%llu MB/s asm=%llu MB/s asm/C=%llu%% bad=%d\n",
-		 raw_smp_processor_id(), chunk, level, nchunks,
+		 "v=%d dm=%u sm=%u cpu=%d chunk=%u level=%d blocks=%u ratio=%llu.%02llu iters=%u C=%llu MB/s asm=%llu MB/s asm/C=%llu%% bad=%d\n",
+		 lz4_asm_variant, lz4_asm_dmargin, lz4_asm_smargin, raw_smp_processor_id(), chunk, level, nchunks,
 		 (u64)nchunks * chunk / ctotal, (u64)nchunks * chunk * 100 / ctotal % 100,
 		 iters, dec * 1000 / tc, dec * 1000 / ta, tc * 100 / ta, bad);
 	pr_info("lz4 bench: %s", lz4_bench_result);
@@ -3626,11 +3657,13 @@ LZ4_FORCE_O2 ssize_t LZ4_arm64_decompress_safe_partial(const void *source,
 
 #ifdef __ARCH_HAS_LZ4_ACCELERATOR
 	/* Go fast if we can, keeping away from the end of buffers */
-	if (outputSize > LZ4_FAST_MARGIN && inputSize > LZ4_FAST_MARGIN &&
+	const size_t dm = READ_ONCE(lz4_asm_dmargin), sm = READ_ONCE(lz4_asm_smargin);
+
+	if (outputSize > dm && inputSize > sm &&
 	    lz4_decompress_accel_enable()) {
 		ret = lz4_decompress_asm(
-			&dstPtr, dest, dest + outputSize - LZ4_FAST_MARGIN,
-			&srcPtr, source + inputSize - LZ4_FAST_MARGIN, dip);
+			&dstPtr, dest, dest + outputSize - dm,
+			&srcPtr, source + inputSize - sm, dip);
 		if (ret)
 			return -EIO;
 	}
@@ -3651,11 +3684,13 @@ LZ4_FORCE_O2 ssize_t LZ4_arm64_decompress_safe(const void *source, void *dest,
 
 #ifdef __ARCH_HAS_LZ4_ACCELERATOR
 	/* Go fast if we can, keeping away from the end of buffers */
-	if (outputSize > LZ4_FAST_MARGIN && inputSize > LZ4_FAST_MARGIN &&
+	const size_t dm = READ_ONCE(lz4_asm_dmargin), sm = READ_ONCE(lz4_asm_smargin);
+
+	if (outputSize > dm && inputSize > sm &&
 	    lz4_decompress_accel_enable()) {
 		ret = lz4_decompress_asm(
-			&dstPtr, dest, dest + outputSize - LZ4_FAST_MARGIN,
-			&srcPtr, source + inputSize - LZ4_FAST_MARGIN, dip);
+			&dstPtr, dest, dest + outputSize - dm,
+			&srcPtr, source + inputSize - sm, dip);
 		if (ret)
 			return -EIO;
 	}

@@ -72,7 +72,7 @@
 .endm
 
 .altmacro
-.macro lz4_decompress_asm_generic	doprfm=1
+.macro lz4_decompress_asm_generic	doprfm=1, v2=0
 	stp     x29, x30, [sp, #-16]!
 	mov     x29, sp
 	stp	x3, x0, [sp, #-16]!			/* push src and dst in stack */
@@ -90,8 +90,15 @@
 	mov	save_dst, x0
 	mov	save_src, x3
 
+.if \v2
+	/* x0 >= x2 || x3 >= x4 -> Done, one branch */
+	cmp	x0, x2
+	ccmp	x3, x4, #2, lo
+	b.hs	Done
+.else
 	check_dst_overflow
 	check_src_overflow
+.endif
 
 .if \doprfm
 	add tmp, x0, #512
@@ -138,12 +145,23 @@
 
 5:
 	/* Copy_long_literal_loop: */
+.if \v2
+	/* 32 bytes per iteration (lz4 1.10 LZ4_wildCopy32); src margin >= 32 */
+	ldp	q0, q1, [copy_from_ptr], #32
+	stp	q0, q1, [copy_to_ptr], #32
+.else
 	ldr	q0, [copy_from_ptr], #16
 	str	q0, [copy_to_ptr], #16
+.endif
 
 	cmp	x0, copy_to_ptr
+.if \v2
+	b.hi	5b
+	b	7f
+.else
 	b.ls	7f
 	b	5b
+.endif
 
 6:
 	/* Copy_literal_lt_15: */
@@ -187,6 +205,12 @@
 9:
 	/* Copy_match_begin: */
 	check_dst_overflow1
+.if \v2
+	/* offset >= match_length || offset > 31 -> 14f, one branch */
+	cmp	offset, match_length
+	ccmp	offset, #31, #2, lo		/* imm5: 0..31 */
+	b.hi	14f
+.else
 	cmp	offset , match_length
 	b.hs	14f
 
@@ -194,16 +218,26 @@
 	/* Cond_offset_lt_matchlength: */
 	cmp	offset , #32
 	b.hs	14f
+.endif
 
 11:
 	/* Copy_offset_lt_32: */
+.if \v2
+	cmp	offset, #16
+	b.hs	111f
+.endif
 	ldr	q1, [copy_from_ptr]
 	add	tmp, permtable_addr, offset, lsl #5
 	ldp	q2, q3, [tmp]
 	tbl	v0.16b, {v1.16b}, v2.16b
 	tbl	v1.16b, {v1.16b}, v3.16b
+.if \v2
+	b	12f
+111:
+.else
 	cmp     offset , #16
 	b.lo    12f
+.endif
 	ldp     q0, q1, [copy_from_ptr]
 
 12:
@@ -227,8 +261,18 @@
 	/* offset >= match */
 14:
 	/* Cond_offset_ge_matchlength: */
+.if \v2
+	/*
+	 * Match lengths up to 32 in one go. Bytes read past copy_to_ptr (when
+	 * offset < 32) only land beyond the match end and are rewritten later.
+	 * Continuing in 15: needs offset >= 32, true there: offset >= ml > 32.
+	 */
+	ldp	q0, q1, [copy_from_ptr], #32
+	stp	q0, q1, [copy_to_ptr], #32
+.else
 	ldr	q0, [copy_from_ptr], #16
 	str	q0, [copy_to_ptr], #16
+.endif
 
 	cmp	x0, copy_to_ptr
 	b.ls	1b
@@ -281,7 +325,7 @@ Exit_here:
  * RPS = offset.
  */
 .pushsection	".rodata", "a"
-.p2align 8
+.p2align 6
 Permtable:
 .byte 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0  //offset = 0
 .byte 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0  //offset = 1
@@ -300,7 +344,7 @@ Permtable:
 .byte 0, 1, 2, 3, 4, 5, 6, 7, 8, 9,10,11,12,13, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9,10,11,12,13, 0, 1, 2, 3  //offset = 14
 .byte 0, 1, 2, 3, 4, 5, 6, 7, 8, 9,10,11,12,13,14, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9,10,11,12,13,14, 0, 1  //offset = 15
 
-.p2align 8
+.p2align 6
 Copylength_table:
 .byte 32,32,32,30,32,30,30,28,32,27,30,22,24,26,28,30  // 0  .. 15
 .byte 16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31  // 16 .. 31
@@ -311,3 +355,14 @@ Copylength_table:
 SYM_FUNC_START(_lz4_decompress_asm_noprfm)
 	lz4_decompress_asm_generic	0
 SYM_FUNC_END(_lz4_decompress_asm_noprfm)
+
+/*
+ * TEST v2: lz4 1.10-style tuning of the same decoder: no per-sequence store
+ * prefetch, 32-byte literal/match chunks, ccmp-merged bound checks.
+ * Needs src margin >= 32 and dst margin >= 64 (see LZ4_arm64_decompress_safe).
+ */
+.text
+.p2align 4
+SYM_FUNC_START(_lz4_decompress_asm_v2)
+	lz4_decompress_asm_generic	0, 1
+SYM_FUNC_END(_lz4_decompress_asm_v2)
