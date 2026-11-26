@@ -5559,6 +5559,8 @@ static long binder_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 		break;
 	}
 	case BINDER_GET_EXTENDED_ERROR:
+	/* number this tree's backport used ('b', 18); upstream and bionic use 17 */
+	case _IOWR('b', 18, struct binder_extended_error):
 		ret = binder_ioctl_get_extended_error(thread, ubuf);
 		if (ret < 0)
 			goto err;
