@@ -13,6 +13,8 @@
 struct zcomp_strm {
 	/* compression/decompression buffer */
 	void *buffer;
+	/* local copy of handle memory (zs_obj_read_begin) */
+	void *local_copy;
 	struct crypto_comp *tfm;
 };
 

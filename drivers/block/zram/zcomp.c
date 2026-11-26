@@ -44,8 +44,10 @@ static void zcomp_strm_free(struct zcomp_strm *zstrm)
 	if (!IS_ERR_OR_NULL(zstrm->tfm))
 		crypto_free_comp(zstrm->tfm);
 	free_pages((unsigned long)zstrm->buffer, 1);
+	free_page((unsigned long)zstrm->local_copy);
 	zstrm->tfm = NULL;
 	zstrm->buffer = NULL;
+	zstrm->local_copy = NULL;
 }
 
 /*
@@ -60,7 +62,8 @@ static int zcomp_strm_init(struct zcomp_strm *zstrm, struct zcomp *comp)
 	 * case when compressed size is larger than the original one
 	 */
 	zstrm->buffer = (void *)__get_free_pages(GFP_KERNEL | __GFP_ZERO, 1);
-	if (IS_ERR_OR_NULL(zstrm->tfm) || !zstrm->buffer) {
+	zstrm->local_copy = (void *)__get_free_page(GFP_KERNEL | __GFP_ZERO);
+	if (IS_ERR_OR_NULL(zstrm->tfm) || !zstrm->buffer || !zstrm->local_copy) {
 		zcomp_strm_free(zstrm);
 		return -ENOMEM;
 	}

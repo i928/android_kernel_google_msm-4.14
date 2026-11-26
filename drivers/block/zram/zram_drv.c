@@ -1283,21 +1283,24 @@ static int __zram_bvec_read(struct zram *zram, struct page *page, u32 index,
 
 	size = zram_get_obj_size(zram, index);
 
-	src = zs_map_object(zram->mem_pool, handle, ZS_MM_RO);
 	if (size == PAGE_SIZE) {
+		src = zs_obj_read_begin(zram->mem_pool, handle, NULL);
 		dst = kmap_atomic(page);
 		copy_page(dst, src);
 		kunmap_atomic(dst);
+		zs_obj_read_end(zram->mem_pool, handle, src);
 		ret = 0;
 	} else {
 		struct zcomp_strm *zstrm = zcomp_stream_get(zram->comp);
 
+		src = zs_obj_read_begin(zram->mem_pool, handle,
+					zstrm->local_copy);
 		dst = kmap_atomic(page);
 		ret = zcomp_decompress(zstrm, src, size, dst);
 		kunmap_atomic(dst);
+		zs_obj_read_end(zram->mem_pool, handle, src);
 		zcomp_stream_put(zram->comp);
 	}
-	zs_unmap_object(zram->mem_pool, handle);
 	zram_slot_unlock(zram, index);
 
 	/* Should NEVER happen. Return bio error if it does. */
@@ -1347,7 +1350,7 @@ static int __zram_bvec_write(struct zram *zram, struct bio_vec *bvec,
 	unsigned long alloced_pages;
 	unsigned long handle = 0;
 	unsigned int comp_len = 0;
-	void *src, *dst, *mem;
+	void *src, *mem;
 	struct zcomp_strm *zstrm;
 	struct page *page = bvec->bv_page;
 	unsigned long element = 0;
@@ -1418,17 +1421,14 @@ compress_again:
 		return -ENOMEM;
 	}
 
-	dst = zs_map_object(zram->mem_pool, handle, ZS_MM_WO);
-
 	src = zstrm->buffer;
 	if (comp_len == PAGE_SIZE)
 		src = kmap_atomic(page);
-	memcpy(dst, src, comp_len);
+	zs_obj_write(zram->mem_pool, handle, src, comp_len);
 	if (comp_len == PAGE_SIZE)
 		kunmap_atomic(src);
 
 	zcomp_stream_put(zram->comp);
-	zs_unmap_object(zram->mem_pool, handle);
 	atomic64_add(comp_len, &zram->stats.compr_data_size);
 out:
 	/*
