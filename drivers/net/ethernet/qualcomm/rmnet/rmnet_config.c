@@ -810,7 +810,12 @@ static int rmnet_addr6_event(struct notifier_block *unused,
 
 	priv = netdev_priv(dev);
 	real_dev = priv->real_dev;
-	port = rmnet_get_port_rtnl(real_dev);
+	/*
+	 * inet6addr_chain is an atomic notifier: ipv6_add_addr() calls it from
+	 * router-advertisement receive under rcu_read_lock(), without RTNL, so
+	 * rtnl_dereference() is wrong here. rmnet_get_port() accepts RCU or RTNL.
+	 */
+	port = rmnet_get_port(real_dev);
 
 	if (!port || port->data_format & ~(RMNET_INGRESS_FORMAT_IP_ROUTE |
 					  RMNET_EGRESS_FORMAT_IP_ROUTE))
